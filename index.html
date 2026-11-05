@@ -92,7 +92,7 @@ button{cursor:pointer}
 
 .stage{flex:1;overflow:auto;padding:24px 16px 40px}
 .rackwrap{position:relative;margin:0 auto;width:max-content;padding-right:100px}
-.rack{position:relative;display:grid;grid-template-columns:40px 680px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 0 14px 0}
+.rack{position:relative;z-index:1;display:grid;grid-template-columns:40px 680px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 0 14px 0}
 .ucol{position:relative}
 .ucol span{position:absolute;right:8px;font-family:var(--f-mono);font-size:11px;color:var(--muted);transform:translateY(-50%)}
 .body{position:relative;background:var(--rack);border-left:10px solid var(--rail);border-right:10px solid var(--rail);margin-right:14px}
@@ -156,9 +156,13 @@ body.dragging-any,body.dragging-any *{cursor:grabbing!important;user-select:none
 .port.hit{outline:2px solid var(--ok);outline-offset:1px}
 .port .cc{position:absolute;left:-1px;right:-1px;bottom:-5px;height:2px;border-radius:1px}
 .cables{position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:5}
-.cables path{fill:none;stroke-width:1.6;opacity:.55}
+.cables.under{z-index:0}
+.cables path{fill:none;stroke-width:1.8;opacity:.7;stroke-linejoin:round;stroke-linecap:round}
+.cables path.cold{opacity:.25}
+.cables path.lit{opacity:1;stroke-width:2.6}
+.cables path.casing{stroke:var(--panel);stroke-width:6;opacity:.85}
 .cables path.hot{stroke-width:2.6;opacity:1}
-.cables path.cold{opacity:.12}
+.cables .end{stroke:var(--panel);stroke-width:1.5}
 .cables path.moving{opacity:.12}
 .cables .dragline{stroke-width:2.6;stroke-dasharray:6 4;opacity:1;fill:none}
 .cables .dragdot{opacity:1}
@@ -305,6 +309,11 @@ td.mono,.mono{font-family:var(--f-mono);font-size:12px;font-variant-numeric:tabu
 .pin.dim{opacity:.3}
 .pin.hit i{outline:3px solid #17784a;outline-offset:2px}
 .pin.dragging{z-index:10;cursor:grabbing}
+.pin:hover i{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.3)}
+.pin.dragging i{box-shadow:0 8px 18px rgba(0,0,0,.35)}
+.pin.dragging span{background:#15202b;color:#fff;border-color:#15202b}
+.plan.pinmove{cursor:grabbing}
+.plan.pinmove .pin:not(.dragging){opacity:.55}
 .pin.dragging i{transform:scale(1.15)}
 .legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:-8px 2px 14px}
 .legend span{display:flex;align-items:center;gap:6px}
@@ -664,28 +673,45 @@ function renderRack(){
       : `<div class="face ${d.type==="manager"?"mgr":"blank"}"><span class="meta"><b>${esc(d.model||t.label)}</b><small>${esc(d.ip||"")}</small></span></div>`;
     return `<div class="${cls.join(" ")}" data-dev="${d.id}" style="top:${top+1}px;height:${d.h*UH-2}px"><span class="tag" title="Drag to move"><b>${esc(d.name)}</b></span>${face}${readOnly?"":`<span class="rz" title="Drag to resize" data-rz="${d.id}"></span>`}</div>`;
   }).join("");
-  st.innerHTML=`<div class="rackwrap" id="rw"><div class="rack"><div class="ucol" style="height:${H}px">${u}</div><div class="body" id="rbody" style="height:${H}px">${slots}${devs}</div></div><svg class="cables" id="cables"></svg></div>`;
+  st.innerHTML=`<div class="rackwrap" id="rw"><svg class="cables under" id="cablesUnder"></svg><div class="rack"><div class="ucol" style="height:${H}px">${u}</div><div class="body" id="rbody" style="height:${H}px">${slots}${devs}</div></div><svg class="cables" id="cables"></svg></div>`;
   requestAnimationFrame(drawCables);
 }
+// Cables run along the seams between devices and down a gutter beside the rack.
+// Unselected cables sit behind the rack, so only the gutter bundle shows; the selected
+// cable is drawn on top with an outline so it stays readable over the devices.
+function roundPath(pts,rad){
+  const P=[]; for(const p of pts){ const l=P[P.length-1]; if(!l||Math.abs(l[0]-p[0])>.5||Math.abs(l[1]-p[1])>.5) P.push(p); }
+  for(let i=1;i<P.length-1;i++){ const [a,b,c]=[P[i-1],P[i],P[i+1]]; if((Math.abs(a[0]-b[0])<.5&&Math.abs(b[0]-c[0])<.5)||(Math.abs(a[1]-b[1])<.5&&Math.abs(b[1]-c[1])<.5)){ P.splice(i,1); i--; } }
+  let d=`M${P[0][0].toFixed(1)} ${P[0][1].toFixed(1)}`;
+  for(let i=1;i<P.length;i++){ const b=P[i];
+    if(i<P.length-1){ const a=P[i-1], c=P[i+1]; const l1=Math.hypot(b[0]-a[0],b[1]-a[1]), l2=Math.hypot(c[0]-b[0],c[1]-b[1]); const r=Math.min(rad,l1/2,l2/2);
+      const p1=[b[0]-(b[0]-a[0])/l1*r,b[1]-(b[1]-a[1])/l1*r], p2=[b[0]+(c[0]-b[0])/l2*r,b[1]+(c[1]-b[1])/l2*r];
+      d+=` L${p1[0].toFixed(1)} ${p1[1].toFixed(1)} Q${b[0].toFixed(1)} ${b[1].toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`; }
+    else d+=` L${b[0].toFixed(1)} ${b[1].toFixed(1)}`; }
+  return d;
+}
 function drawCables(){
-  const svg=$("#cables"), rw=$("#rw"), r=rack(); if(!svg||!rw||!r) return;
-  if(!showCables){ svg.innerHTML=""; return; }
-  const box=rw.getBoundingClientRect(), body=$("#rbody").getBoundingClientRect();
-  const right=body.right-box.left+4; let lane=0, out="";
-  const seen=new Set(); const selPort = sel.port!=null ? `${sel.dev}:${sel.port}` : null;
+  const svg=$("#cables"), under=$("#cablesUnder"), rw=$("#rw"), r=rack(); if(!svg||!under||!rw||!r) return;
+  if(!showCables){ svg.innerHTML=""; under.innerHTML=""; return; }
+  const box=rw.getBoundingClientRect(), rk=rw.querySelector(".rack").getBoundingClientRect();
+  const gut=rk.right-box.left+10; let lane=0, top="", low="";
+  const seen=new Set(), selKey = sel.port!=null ? `${sel.dev}:${sel.port}` : null, any=!!(selKey||sel.dev);
+  const endOf=el=>{ const pr=el.getBoundingClientRect(), dr=el.closest(".dev").getBoundingClientRect();
+    const x=pr.left-box.left+pr.width/2, y=pr.top-box.top+pr.height/2, upper=y < (dr.top-box.top+dr.height/2);
+    return {x,y,seam: upper ? dr.top-box.top-1.5 : dr.bottom-box.top+1.5, py: upper ? pr.top-box.top : pr.bottom-box.top}; };
   for(const d of r.devices) d.ports.forEach((pt,i)=>{
-    if(!pt.link) return; const key=[`${d.id}:${i}`,`${pt.link.d}:${pt.link.p}`].sort().join("|"); if(seen.has(key)) return; seen.add(key);
+    if(!pt.link) return; const ka=`${d.id}:${i}`, kb=`${pt.link.d}:${pt.link.p}`, key=[ka,kb].sort().join("|"); if(seen.has(key)) return; seen.add(key);
     const a=rw.querySelector(`.port[data-d="${d.id}"][data-p="${i}"]`), b=rw.querySelector(`.port[data-d="${pt.link.d}"][data-p="${pt.link.p}"]`);
     if(!a||!b) return;
-    const ra=a.getBoundingClientRect(), rb=b.getBoundingClientRect();
-    const ax=ra.left-box.left+ra.width/2, ay=ra.bottom-box.top, bx=rb.left-box.left+rb.width/2, by=rb.bottom-box.top;
-    const lx=right+8+(lane++%14)*6;
-    const hot=(selPort && key.includes(selPort)) || (sel.dev && sel.port==null && (d.id===sel.dev||pt.link.d===sel.dev));
-    const any=selPort||sel.dev;
+    const A=endOf(a), B=endOf(b), lx=gut+(lane++%14)*6;
+    const path=roundPath([[A.x,A.py],[A.x,A.seam],[lx,A.seam],[lx,B.seam],[B.x,B.seam],[B.x,B.py]],6);
+    const hot = !!selKey && (ka===selKey||kb===selKey), lit = !selKey && sel.dev && (d.id===sel.dev||pt.link.d===sel.dev);
     const c=COLORS[pt.color]||pt.color||"var(--accent)";
-    out+=`<path class="${hot?"hot":any?"cold":""}" stroke="${c}" d="M${ax} ${ay} v5 Q${ax} ${ay+9} ${ax+6} ${ay+9} H${lx-6} Q${lx} ${ay+9} ${lx} ${ay+15} V${by+3} Q${lx} ${by+9} ${lx-6} ${by+9} H${bx+6} Q${bx} ${by+9} ${bx} ${by+4} V${by}"/>`;
+    if(hot){ top+=`<path class="casing" d="${path}"/><path class="hot" stroke="${c}" d="${path}"/><circle class="end" cx="${A.x}" cy="${A.py}" r="3" fill="${c}"/><circle class="end" cx="${B.x}" cy="${B.py}" r="3" fill="${c}"/>`; }
+    else low+=`<path class="${lit?"lit":any?"cold":""}" stroke="${c}" d="${path}"/>`;
   });
-  svg.setAttribute("width",box.width+120); svg.setAttribute("height",box.height); svg.innerHTML=out;
+  for(const el of [svg,under]){ el.setAttribute("width",box.width+120); el.setAttribute("height",box.height); }
+  under.innerHTML=low; svg.innerHTML=top;
 }
 
 /* table view */
@@ -838,19 +864,20 @@ function renderJackInsp(el,s,p){
    <div class="fields" data-scope="pin">${fld("Device","endpoint",p.endpoint,{full:true,ph:"e.g. Reception PC, Printer HP-2F"})}
    ${fld("Device IP","eip",p.eip,{mono:true,ph:"10.0.20.45",bad:p.eip&&dups.has(p.eip.trim())})}${fld("MAC","mac",p.mac,{mono:true})}
    ${fld("Notes","note",p.note,{area:true})}</div>
-   <div class="btnrow">${delBtn("pin:"+p.id,"Delete wall port")}</div>`;
+   <p class="hint">To move this wall port, drag its marker on the floor plan, click <b>Move on plan</b> and then the new spot, or use the arrow keys (hold Shift for bigger steps).</p>
+   <div class="btnrow"><button class="btn${placeMode==="move"?" on":""}" data-act="movepin" ${readOnly?"disabled":""}>${placeMode==="move"?"Click the new spot… (Esc)":"Move on plan"}</button>${delBtn("pin:"+p.id,"Delete wall port")}</div>`;
 }
 function renderRackPinInsp(el,s,p){
   const r=S.racks[p.rack];
   el.innerHTML=`${roNote()}<button class="back" data-back="site">← ${esc(s.name)}</button><h2>${esc(r?.name||p.label||"Rack location")}</h2><p class="sub">Rack location · ${esc(floorName(s,p.floor))}</p>
    <div class="fields" data-scope="pin">${fld("Rack","rack",p.rack||"",{full:true,select:[["","Choose a rack…"],...siteRacks().map(x=>[x.id,x.name])]})}
    ${fld("Label","label",p.label,{full:true,ph:"Used when no rack is chosen"})}${fld("Room","room",p.room,{full:true,ph:"Server room"})}</div>
-   <div class="btnrow">${r?`<button class="btn primary" data-openrack="${r.id}">Open rack</button>`:""}${delBtn("pin:"+p.id,"Delete marker")}</div>`;
+   <div class="btnrow">${r?`<button class="btn primary" data-openrack="${r.id}">Open rack</button>`:""}<button class="btn${placeMode==="move"?" on":""}" data-act="movepin" ${readOnly?"disabled":""}>${placeMode==="move"?"Click the new spot… (Esc)":"Move on plan"}</button>${delBtn("pin:"+p.id,"Delete marker")}</div>`;
 }
 
 /* ---------- actions ---------- */
 function select(dev,port=null){ sel={dev,port,slot:null,pin:null}; armed=null; $("#insp").dataset.pendDev=""; render(); }
-function selectPin(id){ sel={dev:null,port:null,slot:null,pin:id}; armed=null; render(); }
+function selectPin(id){ if(placeMode==="move") placeMode=null; sel={dev:null,port:null,slot:null,pin:id}; armed=null; render(); }
 function createSite(){
   if(readOnly) return; const id=uid(), n=Object.keys(S.sites).length+1;
   S.sites[id]={id,name:"Site "+pad2(n),address:"",contact:"",notes:"",floors:[{id:uid(),name:"Ground floor",plan:null}],pins:[]};
@@ -870,6 +897,7 @@ function placePin(e){
   const s=site(), f=floor(), plan=$("#plan"); if(!s||!f||!plan) return;
   const b=plan.getBoundingClientRect(); const x=Math.max(0,Math.min(1,(e.clientX-b.left)/b.width)), y=Math.max(0,Math.min(1,(e.clientY-b.top)/b.height));
   s.pins ||= [];
+  if(placeMode==="move"){ const p=s.pins.find(z=>z.id===sel.pin); placeMode=null; if(p){ p.x=x; p.y=y; p.floor=f.id; saveSite(); toast(`${p.kind==="rack"?"Rack marker":"Wall port "+p.label} moved.`); } else renderSite(); return; }
   if(placeMode==="jack"){ const used=new Set(s.pins.map(p=>p.label)); let i=s.pins.filter(p=>p.kind==="jack").length+1; while(used.has(`WP-${pad2(i)}`)) i++;
     const p={id:uid(),kind:"jack",floor:f.id,x,y,label:`WP-${pad2(i)}`,room:"",link:null,cable:"",endpoint:"",eip:"",mac:"",note:""}; s.pins.push(p); sel={dev:null,port:null,slot:null,pin:p.id}; }
   else { const taken=new Set(s.pins.filter(p=>p.kind==="rack").map(p=>p.rack)); const r=siteRacks().find(x=>!taken.has(x.id));
@@ -1045,6 +1073,7 @@ document.addEventListener("click",e=>{
   if(act==="addfloor"){ if(readOnly) return; const f={id:uid(),name:`Floor ${s.floors.length+1}`,plan:null}; s.floors.push(f); curFloor=f.id; sel.pin=null; saveSite(); return; }
   if(act==="placejack"||act==="placerack"){ const m=act==="placejack"?"jack":"rack"; placeMode = placeMode===m?null:m; if(placeMode) toast(m==="jack"?"Click the floor plan where each wall port is. Press Esc when done.":"Click where the rack sits on the floor plan."); renderSite(); return; }
   if(act==="editplan") return openPlanEditor();
+  if(act==="movepin"){ placeMode = placeMode==="move"?null:"move"; if(placeMode){ const p=site()?.pins.find(z=>z.id===sel.pin); if(p&&p.floor!==floor()?.id){ curFloor=p.floor; } toast("Click the floor plan where this marker should go."); } render(); return; }
   if(act==="zin"){ zoom=Math.min(4,+(zoom*1.25).toFixed(2)); renderSite(); return; }
   if(act==="zout"){ zoom=Math.max(.5,+(zoom/1.25).toFixed(2)); renderSite(); return; }
   if(act==="zfit"){ zoom=1; renderSite(); return; }
@@ -1132,15 +1161,15 @@ function ghostAt(u,ok){ const body=$("#rbody"); if(!body) return; let g=$("#ghos
   g.dataset.label=`U${u}${pd.h>1?"–"+(u+pd.h-1):""}${ok?"":" · occupied"}`; }
 function startDrag(){
   pd.started=true; document.body.classList.add("dragging-any");
-  if(pd.kind==="pin"){ pd.el.classList.add("dragging"); return; }
-  if(pd.kind==="resize"){ pd.el.classList.add("resizing"); $("#cables")?.classList.add("hide"); sel={dev:pd.id,port:null,slot:null,pin:null}; scrollLoop(); return; }
+  if(pd.kind==="pin"){ pd.el.classList.add("dragging"); $("#plan")?.classList.add("pinmove"); sel.pin=pd.id; const c=document.createElement("div"); c.id="dragchip"; c.className="dragchip"; c.textContent=pd.el.querySelector("span")?.textContent||"Marker"; document.body.appendChild(c); scrollLoop(); return; }
+  if(pd.kind==="resize"){ pd.el.classList.add("resizing"); document.querySelectorAll(".cables").forEach(x=>x.classList.add("hide")); sel={dev:pd.id,port:null,slot:null,pin:null}; scrollLoop(); return; }
   if(pd.kind==="port"){ pd.el.classList.add("dragsrc"); const r=rack(), src=devById(r,pd.d)?.ports[pd.p];
     pd.anchor = src?.link ? $(`#rbody .port[data-d="${src.link.d}"][data-p="${src.link.p}"]`) : pd.el;
     pd.stroke = COLORS[src?.color]||src?.color||"var(--accent)";
-    document.querySelectorAll("#cables path").forEach(x=>x.classList.add("moving"));
+    document.querySelectorAll(".cables path").forEach(x=>x.classList.add("moving"));
     scrollLoop(); return; }
   if(pd.kind==="lib" && view!=="rack"){ view="rack"; render(); }
-  $("#cables")?.classList.add("hide");
+  document.querySelectorAll(".cables").forEach(x=>x.classList.add("hide"));
   if(pd.kind==="dev"){ const er=pd.el.getBoundingClientRect(); pd.grabOff=pd.y-er.top; pd.el.classList.add("dragging"); sel={dev:pd.id,port:null,slot:null,pin:null}; }
   else { pd.grabOff=UH/2; const c=document.createElement("div"); c.id="dragchip"; c.className="dragchip"; c.textContent=`${TYPES[pd.type].label} · ${pd.h}U`; document.body.appendChild(c); }
   scrollLoop();
@@ -1161,7 +1190,11 @@ function moveDrag(e){
     g.lastElementChild.setAttribute("cx",cx); g.lastElementChild.setAttribute("cy",cy); g.lastElementChild.setAttribute("fill",pd.stroke);
     return; }
   if(pd.kind==="pin"){ const b=$("#plan")?.getBoundingClientRect(); if(!b) return; pd.fx=Math.max(0,Math.min(1,(e.clientX-b.left)/b.width)); pd.fy=Math.max(0,Math.min(1,(e.clientY-b.top)/b.height));
-    pd.el.style.left=pd.fx*100+"%"; pd.el.style.top=pd.fy*100+"%"; pd.scroll=0; return; }
+    pd.el.style.left=pd.fx*100+"%"; pd.el.style.top=pd.fy*100+"%"; pd.scroll=0;
+    const ps=$("#planScroll")?.getBoundingClientRect(), E=40; if(ps){ pd.psx=e.clientX<ps.left+E?-1:e.clientX>ps.right-E?1:0; pd.psy=e.clientY<ps.top+E?-1:e.clientY>ps.bottom-E?1:0; }
+    const st=$("#stage").getBoundingClientRect(); pd.scroll = e.clientY<st.top+40 ? -1 : e.clientY>st.bottom-40 ? 1 : 0;
+    const c=$("#dragchip"); if(c){ c.style.left=(e.clientX+14)+"px"; c.style.top=(e.clientY+14)+"px"; }
+    return; }
   const r=rack(), b=bodyRect(); if(!b) return;
   if(pd.kind==="dev"){
     const maxTop=(r.units-pd.h)*UH; let top=e.clientY-b.top-pd.grabOff; top=Math.max(0,Math.min(maxTop,top));
@@ -1172,7 +1205,10 @@ function moveDrag(e){
     if(over){ const u=snapU(e.clientY); pd.u=u; ghostAt(u,fits(r,u,pd.h)); } else { pd.u=null; $("#ghost")?.remove(); }
   }
 }
-function scrollLoop(){ if(!pd||!pd.started) return; if(pd.scroll&&lastEv){ $("#stage").scrollTop+=pd.scroll*14; moveDrag(lastEv); } requestAnimationFrame(scrollLoop); }
+function scrollLoop(){ if(!pd||!pd.started) return;
+  let moved=false; if(pd.scroll&&lastEv){ $("#stage").scrollTop+=pd.scroll*14; moved=true; }
+  if(pd.kind==="pin"&&(pd.psx||pd.psy)){ const ps=$("#planScroll"); if(ps){ ps.scrollLeft+=(pd.psx||0)*12; ps.scrollTop+=(pd.psy||0)*12; moved=true; } }
+  if(moved&&lastEv) moveDrag(lastEv); requestAnimationFrame(scrollLoop); }
 function endDrag(commit){
   if(!pd) return; clearTimeout(pd.timer);
   const p=pd; pd=null; $("#ghost")?.remove(); $("#dragchip")?.remove(); document.body.classList.remove("dragging-any");
@@ -1184,7 +1220,7 @@ function endDrag(commit){
   if(p.kind==="port"){ document.querySelectorAll(".drop-ok,.drop-bad").forEach(x=>x.classList.remove("drop-ok","drop-bad"));
     const r=rack(); if(commit && p.tgt && r){ const a=devById(r,p.d), b=devById(r,p.tgt.d); if(a&&b&&movePortEnd(r,a,p.p,b,p.tgt.p)) return; }
     render(); return; }
-  if(p.kind==="pin"){ const s=site(), pin=s?.pins.find(x=>x.id===p.id); if(commit&&pin&&p.fx!=null){ pin.x=p.fx; pin.y=p.fy; sel={dev:null,port:null,slot:null,pin:pin.id}; saveSite(); return; } render(); return; }
+  if(p.kind==="pin"){ const s=site(), pin=s?.pins.find(x=>x.id===p.id); if(commit&&pin&&p.fx!=null){ pin.x=p.fx; pin.y=p.fy; sel={dev:null,port:null,slot:null,pin:pin.id}; saveSite(); toast(`${pin.kind==="rack"?"Rack marker":"Wall port "+pin.label} moved.`); return; } render(); return; }
   const r=rack();
   if(commit && p.u!=null && r){
     if(p.kind==="dev"){ const d=devById(r,p.id); if(fits(r,p.u,p.h,p.id)){ if(d.u!==p.u){ d.u=p.u; saveRack(); toast(`${d.name} moved to U${p.u}${d.h>1?"–"+(p.u+d.h-1):""}.`); return; } }
@@ -1200,12 +1236,12 @@ document.addEventListener("pointerdown",e=>{
   if(rzEl){ const d=devById(rack(),rzEl.dataset.rz); if(!d) return; pd={kind:"resize",id:d.id,h:d.h,top:d.u+d.h-1,el:rzEl.closest(".dev"),x:e.clientX,y:e.clientY,started:false,touch:false,u:d.u,scroll:0}; e.stopPropagation(); return; }
   const portEl=e.target.closest("#rbody .port");
   if(portEl && view==="rack"){ const d=devById(rack(),portEl.dataset.d); if(!d) return; pd={kind:"port",d:d.id,p:+portEl.dataset.p,el:portEl}; }
-  else if(pinEl){ if(placeMode) return; const s=site(); const p=s?.pins.find(x=>x.id===pinEl.dataset.pin); if(!p) return; pd={kind:"pin",id:p.id,el:pinEl}; }
+  else if(pinEl){ if(placeMode==="move") return; const s=site(); const p=s?.pins.find(x=>x.id===pinEl.dataset.pin); if(!p) return; pd={kind:"pin",id:p.id,el:pinEl}; }
   else if(devEl && !e.target.closest(".port")){ const d=devById(rack(),devEl.dataset.dev); if(!d) return; pd={kind:"dev",id:d.id,h:d.h,el:devEl}; }
   else if(lib && rack()){ pd={kind:"lib",type:lib.dataset.type,h:TYPES[lib.dataset.type].h}; }
   else return;
   Object.assign(pd,{x:e.clientX,y:e.clientY,started:false,touch:e.pointerType==="touch",u:null,scroll:0});
-  if(pd.touch){ const ev={clientX:e.clientX,clientY:e.clientY}; pd.timer=setTimeout(()=>{ if(pd&&!pd.started){ startDrag(); moveDrag(ev); navigator.vibrate?.(15); } },300); }
+  if(pd.touch){ const ev={clientX:e.clientX,clientY:e.clientY}; pd.timer=setTimeout(()=>{ if(pd&&!pd.started){ startDrag(); moveDrag(ev); navigator.vibrate?.(15); } },pd.kind==="pin"?220:300); }
 });
 document.addEventListener("pointermove",e=>{
   if(!pd) return; const dist=Math.hypot(e.clientX-pd.x,e.clientY-pd.y);
@@ -1218,6 +1254,12 @@ document.addEventListener("pointerup",()=>endDrag(true));
 document.addEventListener("pointercancel",()=>endDrag(false));
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape"){ if(pd){ endDrag(false); return; } if(placeMode){ placeMode=null; renderSite(); return; } if(menuOpen){ menuOpen=false; renderSide(); return; } }
+  if(view==="site" && sel.pin && e.key.startsWith("Arrow") && !e.target.closest("input,select,textarea") && !readOnly){
+    const p=site()?.pins.find(z=>z.id===sel.pin); if(!p) return; e.preventDefault();
+    const st=e.shiftKey?.02:.0025, dx={ArrowLeft:-st,ArrowRight:st}[e.key]||0, dy={ArrowUp:-st,ArrowDown:st}[e.key]||0;
+    p.x=Math.max(0,Math.min(1,p.x+dx)); p.y=Math.max(0,Math.min(1,p.y+dy));
+    const el=document.querySelector(`.pin[data-pin="${p.id}"]`); if(el){ el.style.left=p.x*100+"%"; el.style.top=p.y*100+"%"; }
+    persist("sites",curSite); return; }
   if(!["ArrowUp","ArrowDown"].includes(e.key) || e.target.closest("input,select,textarea") || readOnly) return;
   const r=rack(), d=devById(r,sel.dev); if(!d||sel.port!=null||view!=="rack") return;
   e.preventDefault(); nudge(d, e.key==="ArrowUp"?1:-1);
