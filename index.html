@@ -319,6 +319,15 @@ details.jport[open] summary::before{content:"▾"}
 details.jport summary span{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 details.jport .trace{margin-top:2px}
 .pin span{font-family:var(--f-mono);font-size:10px;font-weight:500;background:rgba(255,255,255,.92);color:#15202b;padding:0 4px;border-radius:3px;white-space:nowrap;border:1px solid #d2d9e1}
+.pin.ap i{width:26px;height:26px;border-radius:50%;background:#fff;border:2px solid #0b8a6b;color:#0b8a6b;display:flex;align-items:center;justify-content:center}
+.pin.ap i svg{width:16px;height:16px}
+.pin.ap i::after{display:none}
+.pin.ap.on i{background:#0b8a6b;color:#fff}
+.pin.ap.part i{background:#d9f2ea}
+.cov{position:absolute;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;z-index:1;
+  background:radial-gradient(circle,rgba(11,138,107,.26) 0%,rgba(11,138,107,.14) 55%,rgba(11,138,107,.04) 100%);border:1.5px dashed rgba(11,138,107,.55)}
+.cov.sel{border-style:solid;border-color:rgba(11,138,107,.9)}
+.legend i.ap{border-radius:50%;border-color:#0b8a6b;background:rgba(11,138,107,.18)}
 .pin.rk i{width:26px;height:26px;border-radius:4px;background:#15202b;border-color:#15202b}
 .pin.rk i::after{left:5px;right:5px;top:5px;height:auto;bottom:5px;border:0;background:repeating-linear-gradient(#fff 0 2px,transparent 2px 5px)}
 .pin.sel i{outline:3px solid #f0a020;outline-offset:2px}
@@ -427,6 +436,7 @@ const pad2 = n => String(n).padStart(2,"0");
 const S = {racks:{}, sites:{}, plans:{}};
 let curSite=null, curId=null, curFloor=null, view="site";
 let sel={dev:null,port:null,slot:null,pin:null};
+let showCov=true;
 let q="", showCables=true, loaded=false, readOnly=false, armed=null, menuOpen=false, placeMode=null, zoom=1;
 
 const site = () => S.sites[curSite] || null;
@@ -450,7 +460,8 @@ function setPortCounts(r,d,want){
   for(const k of ["rj45","sfp","lc"]) for(let i=0;i<Math.min(200,want[k]||0);i++){ const oi=keep[k][i]; const pt=oi!=null?{...old[oi]}:makePorts([[k,1]])[0]; pt.n=n++; if(oi!=null) map[oi]=np.length; np.push(pt); }
   for(const o of r.devices) o.ports.forEach(op=>{ if(op.link&&op.link.d===d.id&&o.id!==d.id) op.link.p=map[op.link.p]; });
   np.forEach(pt=>{ if(pt.link&&pt.link.d===d.id) pt.link.p=map[pt.link.p]; });
-  for(const x of pinsAll()) for(const jpo of jp(x.p)) if(jpo.link?.r===r.id && jpo.link.d===d.id && jpo.link.p!=null){ const m=map[jpo.link.p]; jpo.link.p = m==null?null:m; persist("sites",x.s.id); }
+  for(const x of pinsAll()){ for(const jpo of jp(x.p)) if(jpo.link?.r===r.id && jpo.link.d===d.id && jpo.link.p!=null){ const m=map[jpo.link.p]; jpo.link.p = m==null?null:m; persist("sites",x.s.id); }
+    const u=x.p.kind==="ap"?x.p.up:null; if(u?.r===r.id&&u.d===d.id&&u.p!=null){ const m=map[u.p]; u.p = m==null?null:m; persist("sites",x.s.id); } }
   d.ports=np;
 }
 /* cable length check: recorded length vs. the run between the two devices */
@@ -488,9 +499,19 @@ function trace(p,j=0){
   return t;
 }
 
+/* access points: placed on the plan, plugged into a wall port or straight into a rack port */
+const AP_BANDS=[["","—"],["2.4 GHz","2.4 GHz"],["5 GHz","5 GHz"],["2.4 + 5 GHz","2.4 + 5 GHz"],["2.4 + 5 + 6 GHz","2.4 + 5 + 6 GHz (Wi-Fi 6E/7)"]];
+function apTrace(s,a){
+  const u=a.up; if(!u) return null;
+  if(u.pin){ const jack=(s.pins||[]).find(p=>p.id===u.pin&&p.kind==="jack"); if(!jack||!jp(jack)[u.j]) return null; return {jack,j:u.j,t:trace(jack,u.j)}; }
+  if(u.r){ const r=S.racks[u.r], d=devById(r,u.d); if(!r||!d||u.p==null||!d.ports[u.p]) return {partial:true}; return {direct:true,r,d,pi:u.p,pt:d.ports[u.p]}; }
+  return null;
+}
+function apSwitch(s,a){ const at=apTrace(s,a); if(!at||at.partial) return null; if(at.direct) return {r:at.r,d:at.d,pi:at.pi,pt:at.pt}; const t=at.t; if(t?.o) return {r:t.r,d:t.o,pi:t.oi,pt:t.op}; return null; }
+function apOnJack(s,p,j){ return (s.pins||[]).find(a=>a.kind==="ap"&&a.up?.pin===p.id&&a.up.j===j); }
 function siteIps(){ const map={}; const add=(ip,x)=>{ ip=(ip||"").trim(); if(ip) (map[ip] ||= []).push(x); };
   for(const r of siteRacks()) for(const d of r.devices){ add(d.ip,1); d.ports.forEach(pt=>add(pt.ip,1)); }
-  for(const p of (site()?.pins||[])) for(const x of jp(p)) add(x.eip,1);
+  for(const p of (site()?.pins||[])){ for(const x of jp(p)) add(x.eip,1); if(p.kind==="ap") add(p.ip,1); }
   return map; }
 function dupSet(){ const m=siteIps(), s=new Set(); for(const k in m) if(m[k].length>1) s.add(k); return s; }
 
@@ -620,7 +641,9 @@ function renderBar(){
 
 /* site view */
 function matchJack(p,j){ const s=q.toLowerCase(), x=jp(p)[j], t=trace(p,j); return [jname(p,j),p.room,p.note,x.endpoint,x.eip,x.mac,x.cable,t?.d?.name,t?.o?.name].some(v=>(v||"").toLowerCase().includes(s)); }
-function matchPin(p){ if(!q) return false; if(p.kind!=="jack"){ const s=q.toLowerCase(); return [p.label,p.room,S.racks[p.rack]?.name].some(v=>(v||"").toLowerCase().includes(s)); } return jp(p).some((_,j)=>matchJack(p,j)); }
+function matchPin(p){ if(!q) return false;
+  if(p.kind==="ap"){ const s=q.toLowerCase(), sw=apSwitch(site(),p); return [p.label,p.room,p.model,p.ip,p.mac,p.ssids,p.band,p.note,"access point",sw?.d?.name].some(v=>(v||"").toLowerCase().includes(s)); }
+  if(p.kind!=="jack"){ const s=q.toLowerCase(); return [p.label,p.room,S.racks[p.rack]?.name].some(v=>(v||"").toLowerCase().includes(s)); } return jp(p).some((_,j)=>matchJack(p,j)); }
 function renderSite(){
   const s=site(), st=$("#stage");
   if(!s){ st.innerHTML = loaded ? `<div class="emptyrack"><h2>Add your first site</h2><p>A site is a building or office. Give it an address, upload a floor plan, then place wall ports and racks on it.</p><div class="btnrow"><button class="btn primary" data-act="newsite">Add a site</button><button class="btn" data-act="import">Import…</button>${mode==="local"?`<button class="btn" data-act="sample">Try with sample data</button>`:""}</div></div>` : `<div class="emptyrack"><p>Loading your sites…</p></div>`; return; }
@@ -638,18 +661,36 @@ function renderSite(){
        <label class="btn filebtn" ${readOnly?"style='opacity:.5;pointer-events:none'":""}>${f.plan?"Replace floor plan":"Upload floor plan"}<input type="file" id="planFile" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,application/pdf,.pdf"></label>
        ${f.plan?`<button class="btn" data-act="editplan" ${readOnly?"disabled":""}>Rotate / crop</button>`:""}
        <button class="btn${placeMode==="jack"?" on":""}" data-act="placejack" ${readOnly?"disabled":""}>${placeMode==="jack"?"Placing wall ports… (Esc)":"+ Wall port"}</button>
+       <button class="btn${placeMode==="ap"?" on":""}" data-act="placeap" ${readOnly?"disabled":""}>${placeMode==="ap"?"Click to place access point…":"+ Access point"}</button>
+       ${pins.some(p=>p.kind==="ap")?`<button class="btn${showCov?" on":""}" data-act="cov" aria-pressed="${showCov}">Coverage</button>`:""}
        <button class="btn${placeMode==="rack"?" on":""}" data-act="placerack" ${readOnly?"disabled":""}>${placeMode==="rack"?"Click to mark rack…":"+ Rack location"}</button>
        <span class="zoom"><button data-act="zout" aria-label="Zoom out">−</button><button data-act="zfit">${Math.round(zoom*100)}%</button><button data-act="zin" aria-label="Zoom in">+</button></span></div>`:""}</div>
    ${f?`<div class="planscroll" id="planScroll"><div class="plan${placeMode?" placing":""}" id="plan" style="width:${zoom*100}%;aspect-ratio:${w}/${h}">
       ${src?`<div class="planimg"><img src="${esc(src)}" alt="Floor plan of ${esc(f.name)}" draggable="false" style="${imgStyle(f.plan)}"></div>`:f.plan?`<div class="noplan"><b>Loading floor plan…</b></div>`:`<div class="noplan"><b>No floor plan yet</b><span>Upload a PNG, JPG, SVG or PDF of ${esc(f.name)}. You can still place wall ports on this grid.</span></div>`}
-      ${pins.map(p=>{ const ports=jp(p), nOn=ports.filter((_,j)=>trace(p,j)).length;
+      ${showCov?pins.filter(p=>p.kind==="ap").map(a=>`<div class="cov${sel.pin===a.id?" sel":""}" style="left:${a.x*100}%;top:${a.y*100}%;width:${(a.range??.12)*200}%"></div>`).join(""):""}
+      ${pins.map(p=>{ if(p.kind==="ap"){ const sw=apSwitch(s,p), at=apTrace(s,p); const cls=["pin","ap",sw?"on":at&&!at.partial?"part":"",sel.pin===p.id?"sel":""]; if(q){ if(matchPin(p)) cls.push("hit"); else cls.push("dim"); }
+          const tip=`Access point ${p.label}${p.model?" · "+p.model:""}${p.ip?" · "+p.ip:""}${sw?` → ${portName(sw.d,sw.pi)}`:at?.jack?` → wall port ${jname(at.jack,at.j)}`:" · not connected"}`;
+          return `<button class="${cls.join(" ")}" data-pin="${p.id}" style="left:${p.x*100}%;top:${p.y*100}%" title="${esc(tip)}" aria-label="${esc(tip)}"><i><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8.2a10 10 0 0 1 14 0M5.6 10.9a6.3 6.3 0 0 1 8.8 0M8.2 13.5a2.6 2.6 0 0 1 3.6 0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="10" cy="15.6" r="1.3" fill="currentColor"/></svg></i><span>${esc(p.label||"AP")}</span></button>`; }
+        const ports=jp(p), nOn=ports.filter((_,j)=>trace(p,j)).length;
         const cls=["pin",p.kind==="rack"?"rk":"",nOn?"on":"",nOn&&nOn<ports.length?"part":"",sel.pin===p.id?"sel":""]; if(q){ if(matchPin(p)) cls.push("hit"); else cls.push("dim"); }
         const lbl=p.kind==="rack"?(S.racks[p.rack]?.name||p.label||"Rack"):(p.label||"?");
         const tip=p.kind==="rack"?`Rack ${lbl}`:`Wall port ${lbl}${ports.length>1?` (${ports.length} ports)`:""}: `+ports.map((x,j)=>{ const t=trace(p,j); return `${ports.length>1?letter(j)+" ":""}${t?`→ ${portName(t.d,t.pi)}${t.o?` → ${portName(t.o,t.oi)}`:""}`:"not patched"}${x.endpoint?` · ${x.endpoint}`:""}`; }).join("; ");
         return `<button class="${cls.join(" ")}" data-pin="${p.id}" style="left:${p.x*100}%;top:${p.y*100}%" title="${esc(tip)}" aria-label="${esc(tip)}"><i>${ports.length>1?`<b class="pn">${ports.length}</b>`:""}</i><span>${esc(lbl)}</span></button>`; }).join("")}
    </div></div>
-   <div class="legend"><span><i class="f"></i>Wall port patched to a rack</span><span><i></i>Wall port not patched</span><span><i class="nb">2</i>Number of ports on the plate</span><span><i class="r"></i>Rack location</span><span>Drag markers to move them.</span>${hiddenN?`<span style="color:var(--warn)">${hiddenN} marker${hiddenN===1?" is":"s are"} outside the cropped area. Use Rotate / crop to widen it.</span>`:""}</div>`:`<p class="hint">Add a floor to start.</p>`}
-   ${jackTable(s)}</div>`;
+   <div class="legend"><span><i class="f"></i>Wall port patched to a rack</span><span><i></i>Wall port not patched</span><span><i class="nb">2</i>Number of ports on the plate</span><span><i class="r"></i>Rack location</span><span><i class="ap"></i>Access point (shaded circle: rough coverage)</span><span>Drag markers to move them.</span>${hiddenN?`<span style="color:var(--warn)">${hiddenN} marker${hiddenN===1?" is":"s are"} outside the cropped area. Use Rotate / crop to widen it.</span>`:""}</div>`:`<p class="hint">Add a floor to start.</p>`}
+   ${jackTable(s)}${apTable(s)}</div>`;
+}
+function apTable(s){
+  const aps=(s.pins||[]).filter(p=>p.kind==="ap").filter(p=>!q||matchPin(p)).sort((a,b)=>(a.label||"").localeCompare(b.label||"",undefined,{numeric:true}));
+  if(!aps.length && !(s.pins||[]).some(p=>p.kind==="ap")) return "";
+  const dups=dupSet();
+  return `<div class="tblhead" style="margin-top:6px"><h2>Access points</h2><span class="chip">${aps.length} ${q?"matching":"total"}</span></div>
+   <div class="tbl"><table><thead><tr><th>Access point</th><th>Floor</th><th>Room</th><th>Model</th><th>IP</th><th>Wi-Fi</th><th>Connected via</th><th>Switch port</th><th>VLAN</th></tr></thead><tbody>
+   ${aps.length?aps.map(a=>{ const at=apTrace(s,a), sw=apSwitch(s,a); return `<tr class="click" data-pinrow="${a.id}"><td><b>${esc(a.label)}</b></td><td>${esc(floorName(s,a.floor))}</td><td>${esc(a.room)}</td><td>${esc(a.model)}</td>
+     <td class="mono">${esc(a.ip)}${a.ip&&dups.has(a.ip.trim())?' <span class="chip warn">Duplicate</span>':""}</td><td>${esc([a.ssids,a.band].filter(Boolean).join(" · "))}</td>
+     <td>${at?.jack?`Wall port ${esc(jname(at.jack,at.j))}`:at?.direct?"Direct to rack":"<span style='color:var(--muted)'>Not connected</span>"}</td><td>${sw?esc(portName(sw.d,sw.pi)):""}</td><td class="mono">${esc(sw?.pt?.vlan||"")}</td></tr>`; }).join("")
+     :`<tr><td colspan="9" style="color:var(--muted)">No access points match your search.</td></tr>`}
+   </tbody></table></div>`;
 }
 function jackTable(s){
   const ql=q.toLowerCase();
@@ -659,7 +700,7 @@ function jackTable(s){
    <div class="tbl"><table><thead><tr><th>Wall port</th><th>Floor</th><th>Room</th><th>Patch panel</th><th>Switch port</th><th>VLAN</th><th>Connected device</th><th>Device IP</th></tr></thead><tbody>
    ${rows.length?rows.map(({p,j,x})=>{ const t=trace(p,j); return `<tr class="click" data-pinrow="${p.id}" data-j="${j}"><td class="mono"><b>${esc(jname(p,j))}</b></td><td>${esc(floorName(s,p.floor))}</td><td>${esc(p.room)}</td>
      <td>${t?esc(portName(t.d,t.pi)):"<span style='color:var(--muted)'>Not patched</span>"}</td><td>${t?.o?esc(portName(t.o,t.oi)):""}</td><td class="mono">${esc(t?.op?.vlan||t?.pt?.vlan||"")}</td>
-     <td>${esc(x.endpoint)}</td><td class="mono">${esc(x.eip)}${x.eip&&dups.has(x.eip.trim())?' <span class="chip warn">Duplicate</span>':""}</td></tr>`; }).join("")
+     <td>${esc(x.endpoint||(apOnJack(s,p,j)?"Access point "+apOnJack(s,p,j).label:""))}</td><td class="mono">${esc(x.eip)}${x.eip&&dups.has(x.eip.trim())?' <span class="chip warn">Duplicate</span>':""}</td></tr>`; }).join("")
      :`<tr><td colspan="8" style="color:var(--muted)">${q?"No wall ports match your search.":"No wall ports yet. Click + Wall port, then click the floor plan where each jack is."}</td></tr>`}
    </tbody></table></div>`;
 }
@@ -859,7 +900,7 @@ function renderSiteSideInsp(el){
   const s=site();
   if(!s){ el.innerHTML=`<div class="empty">Add a site to record its address, floor plans and wall ports.</div>`; return; }
   const p=(s.pins||[]).find(x=>x.id===sel.pin);
-  if(p) return p.kind==="rack" ? renderRackPinInsp(el,s,p) : renderJackInsp(el,s,p);
+  if(p) return p.kind==="rack" ? renderRackPinInsp(el,s,p) : p.kind==="ap" ? renderApInsp(el,s,p) : renderJackInsp(el,s,p);
   const f=floor();
   el.innerHTML=`${roNote()}<h2>${esc(s.name)}</h2><p class="sub">Site details</p>
    <div class="fields" data-scope="site">${fld("Site name","name",s.name,{full:true})}
@@ -888,6 +929,7 @@ function jackPortBlock(s,p,j,dups,jm){
    ${r?fld("Device","ld",lk.d||"",{idx:j,full:true,select:[["","Choose a device…"],...r.devices.filter(z=>z.ports.length).map(z=>[z.id,z.name+(z.model?" · "+z.model:"")])]}):""}
    ${d?fld("Port","lp",lk.p??"",{idx:j,full:true,select:[["","Choose a port…"],...d.ports.map((op,i)=>{ const other=jm[`${r.id}:${d.id}:${i}`]; return [i,`${op.kind.toUpperCase()} ${op.n}${op.label?" ("+op.label+")":""}${other&&!(other.p.id===p.id&&other.j===j)?" — wall port "+jname(other.p,other.j):""}`]; })]}):""}
    ${fld("Cable ID","cable",x.cable||"",{idx:j,mono:true,ph:"W-214"})}</div>
+   ${(()=>{ const ap=apOnJack(s,p,j); return ap?`<div class="notice" style="background:var(--accent-soft);color:var(--accent)">Access point <b>${esc(ap.label)}</b> is plugged into this port. <button class="linkbtn" data-pin="${ap.id}">Open it</button></div>`:""; })()}
    <div class="sech">Plugged into this port</div>
    <div class="fields" data-scope="pinport" data-j="${j}">${fld("Device","endpoint",x.endpoint,{idx:j,full:true,ph:"e.g. Reception PC, Printer HP-2F"})}
    ${fld("Device IP","eip",x.eip,{idx:j,mono:true,ph:"10.0.20.45",bad:x.eip&&dups.has(x.eip.trim())})}${fld("MAC","mac",x.mac,{idx:j,mono:true})}</div>`;
@@ -911,8 +953,40 @@ function setJackPorts(p,n){
   const ports=jp(p); n=Math.max(1,Math.min(12,n|0)); if(n===ports.length) return;
   if(n>ports.length){ while(ports.length<n) ports.push(newJackPort()); openJ=n-1; toast(`Wall port ${p.label} now has ${n} ports.`); }
   else { const gone=ports.slice(n), lost=gone.filter(x=>x.link||x.endpoint||x.eip).length; ports.length=n; if(openJ>=n) openJ=n-1;
+    for(const a of (site()?.pins||[])) if(a.kind==="ap"&&a.up?.pin===p.id&&a.up.j>=n) a.up=null;
     toast(`Wall port ${p.label} now has ${n} port${n===1?"":"s"}.${lost?` Removed ${lost} port${lost===1?"":"s"} that had a patch or device recorded.`:""}`); }
   saveSite();
+}
+function renderApInsp(el,s,a){
+  const at=apTrace(s,a), sw=apSwitch(s,a), dups=dupSet(), u=a.up||{};
+  const jackOpts=(s.pins||[]).filter(p=>p.kind==="jack").sort((x,y)=>(x.label||"").localeCompare(y.label||"",undefined,{numeric:true}))
+    .flatMap(p=>jp(p).map((x,j)=>{ const other=apOnJack(s,p,j); return [`jack:${p.id}:${j}`,`Wall port ${jname(p,j)}${p.room?" · "+p.room:""}${other&&other.id!==a.id?" — "+other.label:""}`]; }));
+  const upVal=u.pin?`jack:${u.pin}:${u.j}`:(u.r!=null?"rack":"");
+  const r=S.racks[u.r], d=devById(r,u.d);
+  const hop=(b,sm,btn="")=>`<div class="hop"><span><b>${b}</b><small>${sm}</small>${btn?"<br>"+btn:""}</span></div>`;
+  let chain=hop(`Access point ${esc(a.label)}`,`${esc(a.ip||"no IP")}${a.ssids?" · "+esc(a.ssids):""}`);
+  if(at?.jack){ const t=at.t; chain+=hop(`Wall port ${esc(jname(at.jack,at.j))}`,esc(at.jack.room||floorName(s,at.jack.floor)),`<button class="linkbtn" data-showpin="${at.jack.id}" data-j="${at.j}">Show wall port</button>`);
+    chain+= t ? hop(esc(portName(t.d,t.pi)),esc(t.r.name),`<button class="linkbtn" data-showrack="${t.r.id}:${t.d.id}:${t.pi}">Show in rack</button>`) : `<div class="hop last"><span class="gap">That wall port isn't patched to a rack yet.</span></div>`; }
+  if(sw) chain+=`<div class="hop last"><span><b>${esc(portName(sw.d,sw.pi))}</b><small>${sw.pt.vlan?"VLAN "+esc(sw.pt.vlan):"no VLAN set"}${sw.d.ip?" · "+esc(sw.d.ip):""}</small><br><button class="linkbtn" data-showrack="${sw.r.id}:${sw.d.id}:${sw.pi}">Show in rack</button></span></div>`;
+  else if(at?.jack && at.t) chain+=`<div class="hop last"><span class="gap">The patch panel port isn't connected to a switch yet.</span></div>`;
+  else if(!at || at.partial) chain+=`<div class="hop last"><span class="gap">Not connected yet. Choose where it plugs in below.</span></div>`;
+  el.innerHTML=`${roNote()}<button class="back" data-back="site">← ${esc(s.name)}</button><h2>Access point ${esc(a.label)}</h2><p class="sub">${esc(floorName(s,a.floor))}${a.room?" · "+esc(a.room):""}</p>
+   <div class="trace">${chain}</div>
+   <div class="fields" data-scope="ap">${fld("Name","label",a.label,{ph:"AP-01"})}${fld("Floor","floor",a.floor,{select:s.floors.map(f=>[f.id,f.name])})}
+   ${fld("Room / area","room",a.room||"",{full:true,ph:"e.g. Open office ceiling"})}
+   ${fld("Model","model",a.model||"",{ph:"e.g. UniFi U7 Pro"})}${fld("Wi-Fi bands","band",a.band||"",{select:AP_BANDS})}
+   ${fld("IP address","ip",a.ip||"",{mono:true,ph:"10.0.40.11",bad:a.ip&&dups.has(a.ip.trim())})}${fld("MAC","mac",a.mac||"",{mono:true})}
+   ${fld("Networks (SSIDs)","ssids",a.ssids||"",{full:true,ph:"e.g. Office, Guest"})}
+   ${fld("Power","poe",a.poe||"",{select:[["","—"],["PoE","PoE (802.3af)"],["PoE+","PoE+ (802.3at)"],["PoE++","PoE++ (802.3bt)"],["Adapter","Power adapter"]]})}
+   <label>Coverage circle<input type="range" id="f_range" data-k="range" min="0.03" max="0.4" step="0.01" value="${a.range??.12}" ${readOnly?"disabled":""}></label></div>
+   <div class="sech">Plugged into</div>
+   <div class="fields" data-scope="ap">${fld("Connection","up",upVal,{full:true,select:[["","Not connected"],...jackOpts,["rack","Directly to a rack port…"]]})}
+   ${upVal==="rack"?`${fld("Rack","ar",u.r||"",{full:true,select:[["","Choose a rack…"],...siteRacks().map(z=>[z.id,z.name])]})}
+     ${r?fld("Device","ad",u.d||"",{full:true,select:[["","Choose a device…"],...r.devices.filter(z=>z.ports.length).map(z=>[z.id,z.name+(z.model?" · "+z.model:"")])]}):""}
+     ${d?fld("Port","apo",u.p??"",{full:true,select:[["","Choose a port…"],...d.ports.map((op,i)=>[i,`${op.kind.toUpperCase()} ${op.n}${op.label?" ("+op.label+")":""}${op.link?" — in use":""}`])]}):""}`:""}
+   ${fld("Notes","note",a.note||"",{area:true})}</div>
+   <p class="hint">The shaded circle is a rough guide you set by eye, not a measured signal. Drag the marker to move it.</p>
+   <div class="btnrow"><button class="btn${placeMode==="move"?" on":""}" data-act="movepin" ${readOnly?"disabled":""}>${placeMode==="move"?"Click the new spot… (Esc)":"Move on plan"}</button>${delBtn("pin:"+a.id,"Delete access point")}</div>`;
 }
 function renderRackPinInsp(el,s,p){
   const r=S.racks[p.rack];
@@ -944,9 +1018,11 @@ function placePin(e){
   const s=site(), f=floor(), plan=$("#plan"); if(!s||!f||!plan) return;
   const b=plan.getBoundingClientRect(); const x=Math.max(0,Math.min(1,(e.clientX-b.left)/b.width)), y=Math.max(0,Math.min(1,(e.clientY-b.top)/b.height));
   s.pins ||= [];
-  if(placeMode==="move"){ const p=s.pins.find(z=>z.id===sel.pin); placeMode=null; if(p){ p.x=x; p.y=y; p.floor=f.id; saveSite(); toast(`${p.kind==="rack"?"Rack marker":"Wall port "+p.label} moved.`); } else renderSite(); return; }
+  if(placeMode==="move"){ const p=s.pins.find(z=>z.id===sel.pin); placeMode=null; if(p){ p.x=x; p.y=y; p.floor=f.id; saveSite(); toast(`${p.kind==="rack"?"Rack marker":p.kind==="ap"?"Access point "+p.label:"Wall port "+p.label} moved.`); } else renderSite(); return; }
   if(placeMode==="jack"){ const used=new Set(s.pins.map(p=>p.label)); let i=s.pins.filter(p=>p.kind==="jack").length+1; while(used.has(`WP-${pad2(i)}`)) i++;
     const p={id:uid(),kind:"jack",floor:f.id,x,y,label:`WP-${pad2(i)}`,room:"",ports:[newJackPort()],note:""}; s.pins.push(p); sel={dev:null,port:null,slot:null,pin:p.id}; }
+  else if(placeMode==="ap"){ const used=new Set(s.pins.map(p=>p.label)); let i=s.pins.filter(p=>p.kind==="ap").length+1; while(used.has(`AP-${pad2(i)}`)) i++;
+    const p={id:uid(),kind:"ap",floor:f.id,x,y,label:`AP-${pad2(i)}`,room:"",model:"",ip:"",mac:"",ssids:"",band:"",poe:"",range:.12,up:null,note:""}; s.pins.push(p); sel={dev:null,port:null,slot:null,pin:p.id}; placeMode=null; }
   else { const taken=new Set(s.pins.filter(p=>p.kind==="rack").map(p=>p.rack)); const r=siteRacks().find(x=>!taken.has(x.id));
     const p={id:uid(),kind:"rack",floor:f.id,x,y,label:"",room:"",rack:r?.id||""}; s.pins.push(p); sel={dev:null,port:null,slot:null,pin:p.id}; placeMode=null; }
   saveSite();
@@ -1118,6 +1194,8 @@ document.addEventListener("click",e=>{
   if(act==="copyaddr"){ const a=(s.address||"").trim(); navigator.clipboard?.writeText(a).then(()=>toast("Address copied."),()=>toast("Select the address and copy it.")); return; }
   if(t.dataset.floor){ curFloor=t.dataset.floor; sel.pin=null; armed=null; render(); return; }
   if(act==="addfloor"){ if(readOnly) return; const f={id:uid(),name:`Floor ${s.floors.length+1}`,plan:null}; s.floors.push(f); curFloor=f.id; sel.pin=null; saveSite(); return; }
+  if(act==="placeap"){ placeMode = placeMode==="ap"?null:"ap"; if(placeMode) toast("Click the floor plan where the access point is mounted."); renderSite(); return; }
+  if(act==="cov"){ showCov=!showCov; renderSite(); return; }
   if(act==="placejack"||act==="placerack"){ const m=act==="placejack"?"jack":"rack"; placeMode = placeMode===m?null:m; if(placeMode) toast(m==="jack"?"Click the floor plan where each wall port is. Press Esc when done.":"Click where the rack sits on the floor plan."); renderSite(); return; }
   if(act==="editplan") return openPlanEditor();
   if(act==="jplus"||act==="jminus"){ const p=site()?.pins.find(z=>z.id===sel.pin); if(p) setJackPorts(p,jp(p).length+(act==="jplus"?1:-1)); return; }
@@ -1144,10 +1222,11 @@ document.addEventListener("click",e=>{
   if(t.dataset.nudge){ const d=devById(r,sel.dev); if(d) nudge(d,+t.dataset.nudge); return; }
   if(t.dataset.del){ if(armed!==t.dataset.del){ armed=t.dataset.del; renderInsp(); return; }
     const k=t.dataset.del; armed=null;
+    if(k==="rack"){ for(const x of pinsAll()) if(x.p.kind==="ap"&&x.p.up?.r===curId){ x.p.up=null; persist("sites",x.s.id); } }
     if(k==="rack"){ const id=curId; for(const x of pinsAll()){ let ch=false; for(const jpo of jp(x.p)) if(jpo.link?.r===id){ jpo.link=null; ch=true; } if(x.p.rack===id){ x.p.rack=""; ch=true; } if(ch) persist("sites",x.s.id); }
       delete S.racks[id]; persist("racks",id); curId=null; pickDefaults(); render(); toast("Rack deleted."); return; }
     if(k.startsWith("dev:")){ const id=k.slice(4), d=devById(r,id); d.ports.forEach((_,i)=>unlinkPort(r,d,i));
-      for(const x of pinsAll()) for(const jpo of jp(x.p)) if(jpo.link?.r===r.id && jpo.link.d===id){ jpo.link=null; persist("sites",x.s.id); }
+      for(const x of pinsAll()){ for(const jpo of jp(x.p)) if(jpo.link?.r===r.id && jpo.link.d===id){ jpo.link=null; persist("sites",x.s.id); } if(x.p.kind==="ap"&&x.p.up?.r===r.id&&x.p.up.d===id){ x.p.up=null; persist("sites",x.s.id); } }
       r.devices=r.devices.filter(x=>x.id!==id); sel={dev:null,port:null,slot:null,pin:null}; saveRack(); toast(`${d.name} removed.`); return; }
     if(k==="site"){ const id=curSite; const plans=s.floors.filter(f=>f.plan?.asset).map(f=>f.plan.asset);
       for(const f of s.floors) dropPlanStorage(f.plan);
@@ -1160,7 +1239,7 @@ document.addEventListener("click",e=>{
     if(k.startsWith("plan:")){ const f=s.floors.find(x=>x.id===k.slice(5)); const old=f.plan; f.plan=null; saveSite();
       dropPlanStorage(old);
       toast("Floor plan removed. Wall ports stay where they were."); return; }
-    if(k.startsWith("pin:")){ s.pins=s.pins.filter(p=>p.id!==k.slice(4)); sel.pin=null; saveSite(); toast("Marker deleted."); return; } }
+    if(k.startsWith("pin:")){ const gone=k.slice(4); for(const a of s.pins) if(a.kind==="ap"&&a.up?.pin===gone) a.up=null; s.pins=s.pins.filter(p=>p.id!==gone); sel.pin=null; saveSite(); toast("Marker deleted."); return; } }
   if(act==="unlink"){ const d=devById(r,sel.dev); unlinkPort(r,d,sel.port); d.ports[sel.port].ext=""; $("#insp").dataset.pendDev=""; saveRack(); return; }
   if(act==="applyports"){ const d=devById(r,sel.dev); const want={rj45:+$("#f_rj45").value||0,sfp:+$("#f_sfp").value||0,lc:+$("#f_lc").value||0}; setPortCounts(r,d,want); saveRack(); return; }
   if(act==="setupcustom"){ openCustomSetup(sel.dev,false); return; }
@@ -1173,6 +1252,17 @@ document.addEventListener("change",e=>{
   let v=t.value;
   if(scope==="site"){ const s=site(); s[k]=k==="address"||k==="notes"?v.trim():v.trim(); if(k==="name"&&!s.name) s.name="Untitled site"; saveSite(); return; }
   if(scope==="floor"){ const f=site().floors.find(x=>x.id===scopeEl.dataset.fid); f.name=v.trim()||f.name; saveSite(); return; }
+  if(scope==="ap"){ const s=site(), a=s.pins.find(x=>x.id===sel.pin); if(!a) return;
+    if(k==="up"){ if(a.up?.pin){ const oj=s.pins.find(z=>z.id===a.up.pin), ox=oj&&jp(oj)[a.up.j]; if(ox&&ox.endpoint==="Access point "+a.label) ox.endpoint=""; }
+      if(!v) a.up=null; else if(v==="rack") a.up={r:"",d:"",p:null}; else { const [,pid,j]=v.split(":"); const other=s.pins.find(z=>z.kind==="ap"&&z.id!==a.id&&z.up?.pin===pid&&z.up.j===+j); if(other){ other.up=null; toast(`${other.label} was unplugged from that wall port.`); }
+        a.up={pin:pid,j:+j}; const jack=s.pins.find(z=>z.id===pid), x=jack&&jp(jack)[+j]; if(x&&!x.endpoint) x.endpoint="Access point "+a.label; } }
+    else if(k==="ar") a.up={r:v,d:"",p:null};
+    else if(k==="ad") a.up={...a.up,d:v,p:null};
+    else if(k==="apo") a.up={...a.up,p:v===""?null:+v};
+    else if(k==="range") a.range=Math.max(.03,Math.min(.4,+v||.12));
+    else if(k==="floor"){ a.floor=v; curFloor=v; }
+    else a[k]=v.trim();
+    saveSite(); return; }
   if(scope==="pinport"){ const s=site(), p=s.pins.find(x=>x.id===sel.pin); if(!p) return; const j=+scopeEl.dataset.j, x=jp(p)[j]; if(!x) return; openJ=j;
     if(k==="lr"){ x.link = v ? {r:v,d:null,p:null} : null; }
     else if(k==="ld"){ x.link={r:x.link.r,d:v||null,p:null}; }
@@ -1200,6 +1290,7 @@ document.addEventListener("change",e=>{
     if(k==="ext"){ unlinkPort(r,d,p); pt.ext=v.trim(); $("#insp").dataset.pendDev=""; saveRack(); return; }
     pt[k]=v.trim(); if(["cable","color","len"].includes(k)) syncCable(r,d,p); saveRack(); return; }
 });
+document.addEventListener("input",e=>{ if(e.target.id!=="f_range") return; const a=site()?.pins.find(x=>x.id===sel.pin); const c=document.querySelector(".cov.sel"); if(a&&c) c.style.width=(+e.target.value*200)+"%"; });
 $("#q").addEventListener("input",e=>{ q=e.target.value.trim(); if(view==="site") renderSite(); else if(view==="rack") renderRack(); else renderTable(); });
 window.addEventListener("resize",()=>requestAnimationFrame(drawCables));
 
@@ -1272,7 +1363,7 @@ function endDrag(commit){
   if(p.kind==="port"){ document.querySelectorAll(".drop-ok,.drop-bad").forEach(x=>x.classList.remove("drop-ok","drop-bad"));
     const r=rack(); if(commit && p.tgt && r){ const a=devById(r,p.d), b=devById(r,p.tgt.d); if(a&&b&&movePortEnd(r,a,p.p,b,p.tgt.p)) return; }
     render(); return; }
-  if(p.kind==="pin"){ const s=site(), pin=s?.pins.find(x=>x.id===p.id); if(commit&&pin&&p.fx!=null){ pin.x=p.fx; pin.y=p.fy; sel={dev:null,port:null,slot:null,pin:pin.id}; saveSite(); toast(`${pin.kind==="rack"?"Rack marker":"Wall port "+pin.label} moved.`); return; } render(); return; }
+  if(p.kind==="pin"){ const s=site(), pin=s?.pins.find(x=>x.id===p.id); if(commit&&pin&&p.fx!=null){ pin.x=p.fx; pin.y=p.fy; sel={dev:null,port:null,slot:null,pin:pin.id}; saveSite(); toast(`${pin.kind==="rack"?"Rack marker":pin.kind==="ap"?"Access point "+pin.label:"Wall port "+pin.label} moved.`); return; } render(); return; }
   const r=rack();
   if(commit && p.u!=null && r){
     if(p.kind==="dev"){ const d=devById(r,p.id); if(fits(r,p.u,p.h,p.id)){ if(d.u!==p.u){ d.u=p.u; saveRack(); const shortN=d.ports.filter((_,i)=>shortCable(r,d,i)).length;
@@ -1411,7 +1502,7 @@ function doImport(text){
     for(const s of slist){ if(!s||typeof s!=="object") continue; const ns=clone(s); ns.id=uid(); siteMap[s.id]=ns.id; ns.name=ns.name||"Imported site"; ns.floors=(ns.floors||[]).map(f=>({id:f.id||uid(),name:f.name||"Floor",plan:f.plan&&f.plan.asset&&IN_CLAUDE?f.plan:null,_img:f.plan?.image&&data.images?.[f.plan.image]?{data:data.images[f.plan.image],w:f.plan.w,h:f.plan.h,rot:f.plan.rot,crop:f.plan.crop}:null})); if(!ns.floors.length) ns.floors=[{id:uid(),name:"Ground floor",plan:null}]; ns.pins=ns.pins||[]; S.sites[ns.id]=ns; }
     let added=0; for(const r of rlist){ if(!r||typeof r!=="object") continue; const {rack:nr,map}=normRack(r); rackMap[r.id]=nr.id; devMaps[r.id]=map;
       nr.siteId = siteMap[r.siteId] || (S.sites[r.siteId]?r.siteId:"") || curSite || ""; S.racks[nr.id]=nr; persist("racks",nr.id); curId=nr.id; added++; }
-    for(const s of slist){ const ns=S.sites[siteMap[s.id]]; if(!ns) continue; for(const p of ns.pins){ p.id=uid(); for(const x of jp(p)) if(x.link){ const nr=rackMap[x.link.r], nd=devMaps[x.link.r]?.[x.link.d]; x.link = nr&&nd ? {r:nr,d:nd,p:x.link.p} : null; } if(p.rack) p.rack=rackMap[p.rack]||""; } persist("sites",ns.id); }
+    for(const s of slist){ const ns=S.sites[siteMap[s.id]]; if(!ns) continue; const pinMap={}; for(const p of ns.pins){ const nid=uid(); pinMap[p.id]=nid; p.id=nid; } for(const p of ns.pins){ if(p.kind==="ap"&&p.up){ if(p.up.pin) p.up = pinMap[p.up.pin] ? {pin:pinMap[p.up.pin],j:p.up.j} : null; else if(p.up.r){ const nr=rackMap[p.up.r], nd=devMaps[p.up.r]?.[p.up.d]; p.up = nr&&nd ? {r:nr,d:nd,p:p.up.p} : null; } } for(const x of jp(p)) if(x.link){ const nr=rackMap[x.link.r], nd=devMaps[x.link.r]?.[x.link.d]; x.link = nr&&nd ? {r:nr,d:nd,p:x.link.p} : null; } if(p.rack) p.rack=rackMap[p.rack]||""; } persist("sites",ns.id); }
     if(slist.length){ curSite=siteMap[slist[0].id]; curFloor=null; }
     // restore floor plan images included in the backup
     (async()=>{ let ok=0; for(const id of Object.values(siteMap)){ const ns=S.sites[id]; if(!ns) continue; let changed=false;
@@ -1458,6 +1549,7 @@ function exportCsv(){ const r=rack(); const s=site(); if(!r&&!s) return toast("S
   if(r){ for(const x of cableRows(r)) lines.push(["cable",x.a,x.b,x.cable,x.color,x.len,"","",""].map(c).join(","));
     for(const x of ipRows(r)) lines.push(["ip",x.what,"","","","",x.ip,x.vlan,x.mac].map(c).join(",")); }
   if(s) for(const p of (s.pins||[]).filter(p=>p.kind==="jack")) jp(p).forEach((x,j)=>{ const t=trace(p,j); lines.push(["wall_port",`Wall port ${jname(p,j)} · ${floorName(s,p.floor)}${p.room?" · "+p.room:""}${x.endpoint?" · "+x.endpoint:""}`,t?`${portName(t.d,t.pi)}${t.o?" → "+portName(t.o,t.oi):""}`:"",x.cable||"","","",x.eip||"",t?.op?.vlan||"",x.mac||""].map(c).join(",")); });
+  if(s) for(const a of (s.pins||[]).filter(p=>p.kind==="ap")){ const at=apTrace(s,a), sw=apSwitch(s,a); lines.push(["access_point",`Access point ${a.label} · ${floorName(s,a.floor)}${a.room?" · "+a.room:""}${a.model?" · "+a.model:""}`,`${at?.jack?"Wall port "+jname(at.jack,at.j):at?.direct?"Direct":""}${sw?" → "+portName(sw.d,sw.pi):""}`,"","","",a.ip||"",sw?.pt?.vlan||"",a.mac||""].map(c).join(",")); }
   offer(`${(r?.name||s.name).replace(/[^\w-]+/g,"_")}-cables-ips.csv`, lines.join("\n")); }
 
 let tt; function toast(m){ let el=$("#toast"); if(!el){ el=document.createElement("div"); el.id="toast"; el.className="toast"; el.setAttribute("role","status"); document.body.appendChild(el); } el.textContent=m; el.hidden=false; clearTimeout(tt); tt=setTimeout(()=>el.hidden=true,3400); }
