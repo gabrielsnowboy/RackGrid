@@ -10,7 +10,7 @@ Track your server racks, network cables, IP addresses, site floor plans and wall
 
 - **Sites**: switch between buildings with the site menu. Each site has an address (with an Open in Maps link), a contact, notes and floors.
 - **Floor plans**: upload a PNG, JPG, WebP, SVG or PDF for each floor, then rotate, straighten and crop it.
-- **Wall ports**: place jacks on the floor plan and patch each one to a patch panel port. Click a wall port to trace it: device → wall port → patch panel → switch port and VLAN.
+- **Wall ports**: place jacks on the floor plan (1 port by default, up to 12 per plate, labelled A, B, C…) and patch each port to a patch panel port. Click a wall port to trace it: device → wall port → patch panel → switch port and VLAN.
 - **Racks**: drag devices from the library into rack units, drag them to move, and drag a device's bottom edge to resize it. The library includes patch panels (24 and 48 port), fiber panels, switches, routers, firewalls, servers, NAS, UPS, UPS battery packs, PDUs, cable managers, shelves, blanks and custom devices with any height and port count.
 - **Cables**: connect ports by clicking or dragging. Drag one end of a cable to another port to re-patch it while the other end stays put. Record cable ID, color and length.
 - **IP addresses**: record management IPs, port IPs and the devices plugged into wall ports. Duplicate IPs across a site are flagged.

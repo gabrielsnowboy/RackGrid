@@ -302,6 +302,22 @@ td.mono,.mono{font-family:var(--f-mono);font-size:12px;font-variant-numeric:tabu
 .pin i::after{content:"";position:absolute;left:4px;right:4px;top:4px;height:6px;border:1.5px solid #1d5bd3;border-top:0}
 .pin.on i{background:#1d5bd3}
 .pin.on i::after{border-color:#fff}
+.pin.part i{background:linear-gradient(135deg,#1d5bd3 50%,#fff 50%)}
+.pin .pn{position:absolute;right:-8px;top:-8px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:#15202b;color:#fff;font:600 10px/15px var(--f-ui);text-align:center;z-index:1}
+.legend i.nb{width:auto;height:14px;min-width:14px;border:0;border-radius:7px;background:var(--ink);color:var(--panel);font:600 10px/14px var(--f-ui);font-style:normal;text-align:center;padding:0 3px}
+.stepper{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--bg)}
+.stepper input{border:0!important;border-radius:0!important;text-align:center;width:100%;min-width:0;-moz-appearance:textfield}
+.stepper input::-webkit-inner-spin-button{-webkit-appearance:none}
+.stepper button{border:0;background:var(--soft);width:32px;font-size:16px;font-weight:600;color:var(--ink)}
+.stepper button:disabled{opacity:.4;cursor:not-allowed}
+details.jport{border:1px solid var(--line);border-radius:8px;margin-bottom:8px;padding:0 12px}
+details.jport[open]{padding-bottom:4px}
+details.jport summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;padding:9px 0;list-style:none}
+details.jport summary::-webkit-details-marker{display:none}
+details.jport summary::before{content:"▸";color:var(--muted);font-size:11px}
+details.jport[open] summary::before{content:"▾"}
+details.jport summary span{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+details.jport .trace{margin-top:2px}
 .pin span{font-family:var(--f-mono);font-size:10px;font-weight:500;background:rgba(255,255,255,.92);color:#15202b;padding:0 4px;border-radius:3px;white-space:nowrap;border:1px solid #d2d9e1}
 .pin.rk i{width:26px;height:26px;border-radius:4px;background:#15202b;border-color:#15202b}
 .pin.rk i::after{left:5px;right:5px;top:5px;height:auto;bottom:5px;border:0;background:repeating-linear-gradient(#fff 0 2px,transparent 2px 5px)}
@@ -434,7 +450,7 @@ function setPortCounts(r,d,want){
   for(const k of ["rj45","sfp","lc"]) for(let i=0;i<Math.min(200,want[k]||0);i++){ const oi=keep[k][i]; const pt=oi!=null?{...old[oi]}:makePorts([[k,1]])[0]; pt.n=n++; if(oi!=null) map[oi]=np.length; np.push(pt); }
   for(const o of r.devices) o.ports.forEach(op=>{ if(op.link&&op.link.d===d.id&&o.id!==d.id) op.link.p=map[op.link.p]; });
   np.forEach(pt=>{ if(pt.link&&pt.link.d===d.id) pt.link.p=map[pt.link.p]; });
-  for(const x of pinsAll()) if(x.p.link?.r===r.id && x.p.link.d===d.id && x.p.link.p!=null){ const m=map[x.p.link.p]; x.p.link.p = m==null?null:m; persist("sites",x.s.id); }
+  for(const x of pinsAll()) for(const jpo of jp(x.p)) if(jpo.link?.r===r.id && jpo.link.d===d.id && jpo.link.p!=null){ const m=map[jpo.link.p]; jpo.link.p = m==null?null:m; persist("sites",x.s.id); }
   d.ports=np;
 }
 /* cable length check: recorded length vs. the run between the two devices */
@@ -455,19 +471,26 @@ function syncCable(r,d,p){ const pt=d.ports[p]; if(!pt.link) return; const o=dev
 
 /* wall ports */
 function pinsAll(){ const out=[]; for(const s of Object.values(S.sites)) for(const p of (s.pins||[])) out.push({s,p}); return out; }
-function jackMap(){ const m={}; for(const {s,p} of pinsAll()) if(p.kind==="jack"&&p.link&&p.link.p!=null) m[`${p.link.r}:${p.link.d}:${p.link.p}`]={s,p}; return m; }
+/* a wall port (jack plate) has one or more ports: A, B, C… each patched and used separately */
+const newJackPort = () => ({link:null,cable:"",endpoint:"",eip:"",mac:""});
+function jp(p){ if(p.kind!=="jack") return [];
+  if(!Array.isArray(p.ports)){ p.ports=[{link:p.link||null,cable:p.cable||"",endpoint:p.endpoint||"",eip:p.eip||"",mac:p.mac||""}]; for(const k of ["link","cable","endpoint","eip","mac"]) delete p[k]; }
+  if(!p.ports.length) p.ports.push(newJackPort()); return p.ports; }
+const letter = j => String.fromCharCode(65+j);
+function jname(p,j){ return jp(p).length>1 ? `${p.label||"?"} ${letter(j)}` : (p.label||"?"); }
+function jackMap(){ const m={}; for(const {s,p} of pinsAll()) jp(p).forEach((x,j)=>{ if(x.link&&x.link.p!=null) m[`${x.link.r}:${x.link.d}:${x.link.p}`]={s,p,j,x}; }); return m; }
 function floorName(s,fid){ return s.floors.find(f=>f.id===fid)?.name || "—"; }
-function trace(p){
-  if(!p.link||p.link.p==null) return null;
-  const r=S.racks[p.link.r], d=devById(r,p.link.d); if(!r||!d||!d.ports[p.link.p]) return null;
-  const pt=d.ports[p.link.p]; const t={r,d,pi:p.link.p,pt};
+function trace(p,j=0){
+  const L=jp(p)[j]?.link; if(!L||L.p==null) return null;
+  const r=S.racks[L.r], d=devById(r,L.d); if(!r||!d||!d.ports[L.p]) return null;
+  const pt=d.ports[L.p]; const t={r,d,pi:L.p,pt};
   if(pt.link){ const o=devById(r,pt.link.d); if(o&&o.ports[pt.link.p]) Object.assign(t,{o,oi:pt.link.p,op:o.ports[pt.link.p]}); }
   return t;
 }
 
 function siteIps(){ const map={}; const add=(ip,x)=>{ ip=(ip||"").trim(); if(ip) (map[ip] ||= []).push(x); };
   for(const r of siteRacks()) for(const d of r.devices){ add(d.ip,1); d.ports.forEach(pt=>add(pt.ip,1)); }
-  for(const p of (site()?.pins||[])) add(p.eip,1);
+  for(const p of (site()?.pins||[])) for(const x of jp(p)) add(x.eip,1);
   return map; }
 function dupSet(){ const m=siteIps(), s=new Set(); for(const k in m) if(m[k].length>1) s.add(k); return s; }
 
@@ -596,20 +619,20 @@ function renderBar(){
 }
 
 /* site view */
-function matchPin(p){ if(!q) return false; const s=q.toLowerCase(); const t=trace(p);
-  return [p.label,p.room,p.endpoint,p.eip,p.mac,p.note,t?.d?.name,t?.o?.name].some(v=>(v||"").toLowerCase().includes(s)); }
+function matchJack(p,j){ const s=q.toLowerCase(), x=jp(p)[j], t=trace(p,j); return [jname(p,j),p.room,p.note,x.endpoint,x.eip,x.mac,x.cable,t?.d?.name,t?.o?.name].some(v=>(v||"").toLowerCase().includes(s)); }
+function matchPin(p){ if(!q) return false; if(p.kind!=="jack"){ const s=q.toLowerCase(); return [p.label,p.room,S.racks[p.rack]?.name].some(v=>(v||"").toLowerCase().includes(s)); } return jp(p).some((_,j)=>matchJack(p,j)); }
 function renderSite(){
   const s=site(), st=$("#stage");
   if(!s){ st.innerHTML = loaded ? `<div class="emptyrack"><h2>Add your first site</h2><p>A site is a building or office. Give it an address, upload a floor plan, then place wall ports and racks on it.</p><div class="btnrow"><button class="btn primary" data-act="newsite">Add a site</button><button class="btn" data-act="import">Import…</button>${mode==="local"?`<button class="btn" data-act="sample">Try with sample data</button>`:""}</div></div>` : `<div class="emptyrack"><p>Loading your sites…</p></div>`; return; }
   const f=floor(), onFloor=(s.pins||[]).filter(p=>p.floor===f?.id), inView=p=>p.x>=0&&p.x<=1&&p.y>=0&&p.y<=1, pins=onFloor.filter(inView), hiddenN=onFloor.length-pins.length;
-  const jacks=(s.pins||[]).filter(p=>p.kind==="jack"), patched=jacks.filter(p=>trace(p)).length;
+  const jacks=(s.pins||[]).filter(p=>p.kind==="jack"), jportsN=jacks.reduce((a,p)=>a+jp(p).length,0), patched=jacks.reduce((a,p)=>a+jp(p).filter((_,j)=>trace(p,j)).length,0);
   const src=planSrc(s,f), pg=planGeom(f?.plan), w=pg.DW, h=pg.DH;
   const addr=(s.address||"").trim();
   st.innerHTML=`<div style="max-width:1200px;margin:0 auto">
    <div class="sitehead"><div style="min-width:0;flex:1 1 280px"><h2>${esc(s.name)}</h2>
      <address>${addr?esc(addr):"<span style='font-style:italic'>No address yet. Add one in the panel on the right.</span>"}</address>
      ${addr?`<div class="btnrow"><button class="btn" data-act="copyaddr">Copy address</button><a class="btn" style="text-decoration:none" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr.replace(/\n/g,", "))}">Open in Maps ↗</a></div>`:""}</div>
-     <div class="kpis"><div class="kpi"><b>${siteRacks().length}</b><span>Racks</span></div><div class="kpi"><b>${jacks.length}</b><span>Wall ports</span></div><div class="kpi"><b>${patched}</b><span>Patched</span></div></div></div>
+     <div class="kpis"><div class="kpi"><b>${siteRacks().length}</b><span>Racks</span></div><div class="kpi"><b>${jacks.length}</b><span>Wall ports</span></div><div class="kpi"><b>${patched}/${jportsN}</b><span>Ports patched</span></div></div></div>
    <div class="floorbar"><div class="chips">${s.floors.map(fl=>`<button class="chipbtn${fl.id===f?.id?" on":""}" data-floor="${fl.id}">${esc(fl.name)}</button>`).join("")}<button class="chipbtn" data-act="addfloor" ${readOnly?"disabled":""}>+ Floor</button></div>
      ${f?`<div class="tools">
        <label class="btn filebtn" ${readOnly?"style='opacity:.5;pointer-events:none'":""}>${f.plan?"Replace floor plan":"Upload floor plan"}<input type="file" id="planFile" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,application/pdf,.pdf"></label>
@@ -619,30 +642,31 @@ function renderSite(){
        <span class="zoom"><button data-act="zout" aria-label="Zoom out">−</button><button data-act="zfit">${Math.round(zoom*100)}%</button><button data-act="zin" aria-label="Zoom in">+</button></span></div>`:""}</div>
    ${f?`<div class="planscroll" id="planScroll"><div class="plan${placeMode?" placing":""}" id="plan" style="width:${zoom*100}%;aspect-ratio:${w}/${h}">
       ${src?`<div class="planimg"><img src="${esc(src)}" alt="Floor plan of ${esc(f.name)}" draggable="false" style="${imgStyle(f.plan)}"></div>`:f.plan?`<div class="noplan"><b>Loading floor plan…</b></div>`:`<div class="noplan"><b>No floor plan yet</b><span>Upload a PNG, JPG, SVG or PDF of ${esc(f.name)}. You can still place wall ports on this grid.</span></div>`}
-      ${pins.map(p=>{ const t=p.kind==="jack"?trace(p):null; const cls=["pin",p.kind==="rack"?"rk":"",t?"on":"",sel.pin===p.id?"sel":""]; if(q){ if(matchPin(p)) cls.push("hit"); else cls.push("dim"); }
+      ${pins.map(p=>{ const ports=jp(p), nOn=ports.filter((_,j)=>trace(p,j)).length;
+        const cls=["pin",p.kind==="rack"?"rk":"",nOn?"on":"",nOn&&nOn<ports.length?"part":"",sel.pin===p.id?"sel":""]; if(q){ if(matchPin(p)) cls.push("hit"); else cls.push("dim"); }
         const lbl=p.kind==="rack"?(S.racks[p.rack]?.name||p.label||"Rack"):(p.label||"?");
-        const tip=p.kind==="rack"?`Rack ${lbl}`:`Wall port ${lbl}${t?` → ${portName(t.d,t.pi)}${t.o?` → ${portName(t.o,t.oi)}`:""}`:" · not patched"}${p.endpoint?` · ${p.endpoint}`:""}`;
-        return `<button class="${cls.join(" ")}" data-pin="${p.id}" style="left:${p.x*100}%;top:${p.y*100}%" title="${esc(tip)}" aria-label="${esc(tip)}"><i></i><span>${esc(lbl)}</span></button>`; }).join("")}
+        const tip=p.kind==="rack"?`Rack ${lbl}`:`Wall port ${lbl}${ports.length>1?` (${ports.length} ports)`:""}: `+ports.map((x,j)=>{ const t=trace(p,j); return `${ports.length>1?letter(j)+" ":""}${t?`→ ${portName(t.d,t.pi)}${t.o?` → ${portName(t.o,t.oi)}`:""}`:"not patched"}${x.endpoint?` · ${x.endpoint}`:""}`; }).join("; ");
+        return `<button class="${cls.join(" ")}" data-pin="${p.id}" style="left:${p.x*100}%;top:${p.y*100}%" title="${esc(tip)}" aria-label="${esc(tip)}"><i>${ports.length>1?`<b class="pn">${ports.length}</b>`:""}</i><span>${esc(lbl)}</span></button>`; }).join("")}
    </div></div>
-   <div class="legend"><span><i class="f"></i>Wall port patched to a rack</span><span><i></i>Wall port not patched</span><span><i class="r"></i>Rack location</span><span>Drag markers to move them.</span>${hiddenN?`<span style="color:var(--warn)">${hiddenN} marker${hiddenN===1?" is":"s are"} outside the cropped area. Use Rotate / crop to widen it.</span>`:""}</div>`:`<p class="hint">Add a floor to start.</p>`}
+   <div class="legend"><span><i class="f"></i>Wall port patched to a rack</span><span><i></i>Wall port not patched</span><span><i class="nb">2</i>Number of ports on the plate</span><span><i class="r"></i>Rack location</span><span>Drag markers to move them.</span>${hiddenN?`<span style="color:var(--warn)">${hiddenN} marker${hiddenN===1?" is":"s are"} outside the cropped area. Use Rotate / crop to widen it.</span>`:""}</div>`:`<p class="hint">Add a floor to start.</p>`}
    ${jackTable(s)}</div>`;
 }
 function jackTable(s){
   const ql=q.toLowerCase();
-  const rows=(s.pins||[]).filter(p=>p.kind==="jack").filter(p=>!q||matchPin(p)).sort((a,b)=>(a.label||"").localeCompare(b.label||"",undefined,{numeric:true}));
+  const rows=(s.pins||[]).filter(p=>p.kind==="jack").sort((a,b)=>(a.label||"").localeCompare(b.label||"",undefined,{numeric:true})).flatMap(p=>jp(p).map((x,j)=>({p,j,x}))).filter(r=>!q||matchJack(r.p,r.j));
   const dups=dupSet();
-  return `<div class="tblhead"><h2>Wall ports</h2><span class="chip">${rows.length} ${q?"matching":"total"}</span></div>
+  return `<div class="tblhead"><h2>Wall ports</h2><span class="chip">${rows.length} port${rows.length===1?"":"s"} ${q?"matching":"total"}</span></div>
    <div class="tbl"><table><thead><tr><th>Wall port</th><th>Floor</th><th>Room</th><th>Patch panel</th><th>Switch port</th><th>VLAN</th><th>Connected device</th><th>Device IP</th></tr></thead><tbody>
-   ${rows.length?rows.map(p=>{ const t=trace(p); return `<tr class="click" data-pinrow="${p.id}"><td class="mono"><b>${esc(p.label)}</b></td><td>${esc(floorName(s,p.floor))}</td><td>${esc(p.room)}</td>
+   ${rows.length?rows.map(({p,j,x})=>{ const t=trace(p,j); return `<tr class="click" data-pinrow="${p.id}" data-j="${j}"><td class="mono"><b>${esc(jname(p,j))}</b></td><td>${esc(floorName(s,p.floor))}</td><td>${esc(p.room)}</td>
      <td>${t?esc(portName(t.d,t.pi)):"<span style='color:var(--muted)'>Not patched</span>"}</td><td>${t?.o?esc(portName(t.o,t.oi)):""}</td><td class="mono">${esc(t?.op?.vlan||t?.pt?.vlan||"")}</td>
-     <td>${esc(p.endpoint)}</td><td class="mono">${esc(p.eip)}${p.eip&&dups.has(p.eip.trim())?' <span class="chip warn">Duplicate</span>':""}</td></tr>`; }).join("")
+     <td>${esc(x.endpoint)}</td><td class="mono">${esc(x.eip)}${x.eip&&dups.has(x.eip.trim())?' <span class="chip warn">Duplicate</span>':""}</td></tr>`; }).join("")
      :`<tr><td colspan="8" style="color:var(--muted)">${q?"No wall ports match your search.":"No wall ports yet. Click + Wall port, then click the floor plan where each jack is."}</td></tr>`}
    </tbody></table></div>`;
 }
 
 /* rack view */
 function matchDev(d){ if(!q) return false; const s=q.toLowerCase(); return [d.name,d.model,d.serial,d.ip,TYPES[d.type]?.label,d.notes].some(v=>(v||"").toLowerCase().includes(s)); }
-function matchPort(pt,jk){ if(!q) return false; const s=q.toLowerCase(); return [pt.label,pt.ip,pt.cable,pt.ext,pt.mac,pt.vlan,pt.note,jk?.p.label,jk?.p.endpoint,jk?.p.eip].some(v=>(v||"").toLowerCase().includes(s)); }
+function matchPort(pt,jk){ if(!q) return false; const s=q.toLowerCase(); return [pt.label,pt.ip,pt.cable,pt.ext,pt.mac,pt.vlan,pt.note,jk?jname(jk.p,jk.j):"",jk?.x.endpoint,jk?.x.eip].some(v=>(v||"").toLowerCase().includes(s)); }
 function portHTML(r,d,i,dups,jm){
   const pt=d.ports[i]; if(!pt) return "";
   const jk=jm[`${r.id}:${d.id}:${i}`];
@@ -650,7 +674,7 @@ function portHTML(r,d,i,dups,jm){
   if(sel.dev===d.id && sel.port===i) cls.push("sel");
   if(sel.port!=null){ const sp=devById(r,sel.dev)?.ports[sel.port]; if(sp?.link && sp.link.d===d.id && sp.link.p===i) cls.push("peer"); }
   if(matchPort(pt,jk)) cls.push("hit");
-  const tip=`${pt.kind.toUpperCase()} ${pt.n}${pt.label?" · "+pt.label:""}${pt.ip?" · "+pt.ip:""}${pt.cable?" · cable "+pt.cable:""}${jk?" · wall port "+jk.p.label:""}`;
+  const tip=`${pt.kind.toUpperCase()} ${pt.n}${pt.label?" · "+pt.label:""}${pt.ip?" · "+pt.ip:""}${pt.cable?" · cable "+pt.cable:""}${jk?" · wall port "+jname(jk.p,jk.j):""}`;
   return `<button class="${cls.join(" ")}" data-d="${d.id}" data-p="${i}" title="${esc(tip)}" aria-label="${esc(tip)}">${pt.ip?`<i class="ipdot${dups.has(pt.ip.trim())?" dup":""}"></i>`:""}${pt.color&&(pt.link||pt.ext)?`<i class="cc" style="background:${COLORS[pt.color]||pt.color}"></i>`:""}</button>`;
 }
 function portsHTML(r,d,dups,jm){
@@ -729,7 +753,7 @@ function cableRows(r){
     if(pt.link){ const key=[`${d.id}:${i}`,`${pt.link.d}:${pt.link.p}`].sort().join("|"); if(!seen.has(key)){ seen.add(key);
       const o=devById(r,pt.link.d); rows.push({short:!!shortCable(r,d,i),a:portName(d,i),b:o?portName(o,pt.link.p):"?",cable:pt.cable,color:pt.color,len:pt.len,d:d.id,p:i}); } }
     else if(pt.ext) rows.push({a:portName(d,i),b:pt.ext+" (outside rack)",cable:pt.cable,color:pt.color,len:pt.len,d:d.id,p:i});
-    const jk=jm[`${r.id}:${d.id}:${i}`]; if(jk) rows.push({a:portName(d,i),b:`Wall port ${jk.p.label} · ${floorName(jk.s,jk.p.floor)}${jk.p.room?" · "+jk.p.room:""}`,cable:jk.p.cable||"",color:"",len:"",d:d.id,p:i,pin:jk.p.id});
+    const jk=jm[`${r.id}:${d.id}:${i}`]; if(jk) rows.push({a:portName(d,i),b:`Wall port ${jname(jk.p,jk.j)} · ${floorName(jk.s,jk.p.floor)}${jk.p.room?" · "+jk.p.room:""}`,cable:jk.x.cable||"",color:"",len:"",d:d.id,p:i,pin:jk.p.id,j:jk.j});
   });
   return rows;
 }
@@ -737,7 +761,7 @@ function ipRows(r){
   const out=[], dups=dupSet(), jm=jackMap();
   for(const d of r.devices){ if(d.ip) out.push({ip:d.ip,what:`${d.name} (management)`,vlan:"",mac:"",d:d.id,p:null,dup:dups.has(d.ip.trim())});
     d.ports.forEach((pt,i)=>{ if(pt.ip) out.push({ip:pt.ip,what:portName(d,i),vlan:pt.vlan,mac:pt.mac,d:d.id,p:i,dup:dups.has(pt.ip.trim())});
-      const jk=jm[`${r.id}:${d.id}:${i}`]; if(jk&&jk.p.eip){ const t=trace(jk.p); out.push({ip:jk.p.eip,what:`${jk.p.endpoint||"Device"} via wall port ${jk.p.label}`,vlan:t?.op?.vlan||pt.vlan,mac:jk.p.mac||"",pin:jk.p.id,dup:dups.has(jk.p.eip.trim())}); } }); }
+      const jk=jm[`${r.id}:${d.id}:${i}`]; if(jk&&jk.x.eip){ const t=trace(jk.p,jk.j); out.push({ip:jk.x.eip,what:`${jk.x.endpoint||"Device"} via wall port ${jname(jk.p,jk.j)}`,vlan:t?.op?.vlan||pt.vlan,mac:jk.x.mac||"",pin:jk.p.id,j:jk.j,dup:dups.has(jk.x.eip.trim())}); } }); }
   const key=ip=>ip.split(/[./]/).map(x=>x.padStart(4,"0")).join(".");
   return out.sort((a,b)=>key(a.ip).localeCompare(key(b.ip)));
 }
@@ -746,11 +770,11 @@ function renderTable(){
   if(!r){ renderRack(); return; }
   const s=q.toLowerCase(), f=o=>!q||Object.values(o).some(v=>typeof v==="string"&&v.toLowerCase().includes(s));
   const all=ipRows(r), cr=cableRows(r).filter(f), ir=all.filter(f), dupN=all.filter(x=>x.dup).length;
-  const rowAttrs=x=>x.pin?`data-pinrow="${x.pin}"`:`data-d="${x.d}" data-p="${x.p??""}"`;
+  const rowAttrs=x=>x.pin?`data-pinrow="${x.pin}" data-j="${x.j||0}"`:`data-d="${x.d}" data-p="${x.p??""}"`;
   st.innerHTML=`<div style="max-width:980px;margin:0 auto">
    <div class="tblhead"><h2>Cables</h2><span class="chip">${cr.length} shown</span></div>
    <div class="tbl"><table><thead><tr><th>From</th><th>To</th><th>Cable ID</th><th>Color</th><th>Length</th></tr></thead><tbody>
-   ${cr.length?cr.map(x=>`<tr class="click" ${x.pin?`data-pinrow="${x.pin}"`:`data-d="${x.d}" data-p="${x.p}"`}><td>${esc(x.a)}</td><td>${esc(x.b)}</td><td class="mono">${esc(x.cable)}</td><td>${x.color?`<span class="sw" style="background:${COLORS[x.color]||x.color}"></span> ${esc(x.color)}`:""}</td><td class="mono">${esc(x.len)}${x.short?' <span class="chip warn">Too short?</span>':""}</td></tr>`).join(""):`<tr><td colspan="5" style="color:var(--muted)">No cables recorded yet. Click a port in the rack to connect it.</td></tr>`}
+   ${cr.length?cr.map(x=>`<tr class="click" ${x.pin?`data-pinrow="${x.pin}" data-j="${x.j||0}"`:`data-d="${x.d}" data-p="${x.p}"`}><td>${esc(x.a)}</td><td>${esc(x.b)}</td><td class="mono">${esc(x.cable)}</td><td>${x.color?`<span class="sw" style="background:${COLORS[x.color]||x.color}"></span> ${esc(x.color)}`:""}</td><td class="mono">${esc(x.len)}${x.short?' <span class="chip warn">Too short?</span>':""}</td></tr>`).join(""):`<tr><td colspan="5" style="color:var(--muted)">No cables recorded yet. Click a port in the rack to connect it.</td></tr>`}
    </tbody></table></div>
    <div class="tblhead"><h2>IP addresses</h2>${dupN?`<span class="chip warn">${dupN} duplicate entries at this site</span>`:`<span class="chip ok">No duplicates</span>`}</div>
    <div class="tbl"><table><thead><tr><th>IP</th><th>Assigned to</th><th>VLAN</th><th>MAC</th><th></th></tr></thead><tbody>
@@ -759,7 +783,7 @@ function renderTable(){
 }
 
 /* ---------- inspector ---------- */
-function fld(label,key,val,opt={}){ const id="f_"+key; const dis=readOnly?"disabled":"";
+function fld(label,key,val,opt={}){ const id="f_"+key+(opt.idx!=null?"_"+opt.idx:""); const dis=readOnly?"disabled":"";
   if(opt.select) return `<label class="${opt.full?"full":""}">${label}<select id="${id}" data-k="${key}" ${dis}>${opt.select.map(([v,t])=>`<option value="${esc(v)}"${String(v)===String(val??"")?" selected":""}>${esc(t)}</option>`).join("")}</select></label>`;
   if(opt.area) return `<label class="full">${label}<textarea id="${id}" data-k="${key}" rows="${opt.rows||2}" placeholder="${esc(opt.ph||"")}" ${dis}>${esc(val)}</textarea></label>`;
   return `<label class="${opt.full?"full":""}">${label}<input id="${id}" data-k="${key}" value="${esc(val)}" class="${opt.mono?"mono":""}${opt.bad?" bad":""}" ${opt.type?`type="${opt.type}"`:""} placeholder="${esc(opt.ph||"")}" ${dis}></label>`;
@@ -802,8 +826,8 @@ function renderDevInsp(r,d){
    <div class="sech">Ports</div>
    <div class="fields" data-scope="ports">${fld("RJ45","rj45",kinds.rj45||0,{type:"number"})}${fld("SFP","sfp",kinds.sfp||0,{type:"number"})}${fld("Fiber LC","lc",kinds.lc||0,{type:"number"})}<label style="justify-content:flex-end"><button class="btn" data-act="applyports" ${readOnly?"disabled":""}>Apply port counts</button></label></div>
    ${d.ports.length?`<div class="plist">${d.ports.map((pt,i)=>{ const o=pt.link?devById(r,pt.link.d):null; const jk=jm[`${r.id}:${d.id}:${i}`];
-     const to=o?esc(portName(o,pt.link.p)):pt.ext?esc(pt.ext):jk?`Wall port ${esc(jk.p.label)}`:"<span style='color:var(--muted)'>Free</span>";
-     return `<button data-pp="${i}"><span class="n">${pt.kind==="sfp"?"S":pt.kind==="lc"?"F":""}${pt.n}</span><span class="to">${pt.label?`<b>${esc(pt.label)}</b> → `:""}${to}${jk&&(o||pt.ext)?` · wall ${esc(jk.p.label)}`:""}</span><span class="ip">${esc(pt.ip)}</span></button>`; }).join("")}</div>`:`<p class="hint">This device has no network ports.</p>`}
+     const to=o?esc(portName(o,pt.link.p)):pt.ext?esc(pt.ext):jk?`Wall port ${esc(jname(jk.p,jk.j))}`:"<span style='color:var(--muted)'>Free</span>";
+     return `<button data-pp="${i}"><span class="n">${pt.kind==="sfp"?"S":pt.kind==="lc"?"F":""}${pt.n}</span><span class="to">${pt.label?`<b>${esc(pt.label)}</b> → `:""}${to}${jk&&(o||pt.ext)?` · wall ${esc(jname(jk.p,jk.j))}`:""}</span><span class="ip">${esc(pt.ip)}</span></button>`; }).join("")}</div>`:`<p class="hint">This device has no network ports.</p>`}
    <div class="btnrow"><button class="btn" data-nudge="1" ${readOnly?"disabled":""}>Move up</button><button class="btn" data-nudge="-1" ${readOnly?"disabled":""}>Move down</button>${delBtn("dev:"+d.id,"Remove from rack")}</div>`;
 }
 function renderPortInsp(r,d,p){
@@ -815,7 +839,7 @@ function renderPortInsp(r,d,p){
     if(o) portSel = fld("Port on "+o.name,"linkp",pt.link&&pt.link.d===o.id?pt.link.p:"",{full:true,select:[["","Choose a port…"],...o.ports.map((op,i)=>{ if(o.id===d.id&&i===p) return null; const busy=op.link||op.ext; const who=op.link?devById(r,op.link.d):null;
       return [i,`${op.kind.toUpperCase()} ${op.n}${op.label?" ("+op.label+")":""}${busy?(" — in use"+(who?" by "+who.name:"")):""}`]; }).filter(Boolean)]}); }
   $("#insp").innerHTML=`${roNote()}<button class="back" data-back="dev">← ${esc(d.name)}</button><h2>${esc(d.name)} · port ${pt.n}</h2><p class="sub">${pt.kind.toUpperCase()} · ${pt.link?"connected":pt.ext?"runs outside the rack":"free"}</p>
-   ${jk?`<div class="trace"><div class="hop"><span><b>Wall port ${esc(jk.p.label)}</b><small>${esc(floorName(jk.s,jk.p.floor))}${jk.p.room?" · "+esc(jk.p.room):""}${jk.p.endpoint?" · "+esc(jk.p.endpoint):""}</small><br><button class="linkbtn" data-showpin="${jk.p.id}">Show on floor plan</button></span></div></div>`:""}
+   ${jk?`<div class="trace"><div class="hop"><span><b>Wall port ${esc(jname(jk.p,jk.j))}</b><small>${esc(floorName(jk.s,jk.p.floor))}${jk.p.room?" · "+esc(jk.p.room):""}${jk.x.endpoint?" · "+esc(jk.x.endpoint):""}</small><br><button class="linkbtn" data-showpin="${jk.p.id}" data-j="${jk.j}">Show on floor plan</button></span></div></div>`:""}
    <div class="fields" data-scope="port">${fld("Label","label",pt.label,{ph:"e.g. Uplink, Desk 2-14"})}${fld("IP address","ip",pt.ip,{mono:true,ph:"192.168.1.10",bad:pt.ip&&dups.has(pt.ip.trim())})}
    ${fld("VLAN","vlan",pt.vlan,{mono:true})}${fld("MAC","mac",pt.mac,{mono:true,ph:"aa:bb:cc:dd:ee:ff"})}</div>
    <div class="sech">Cable</div>
@@ -847,35 +871,48 @@ function renderSiteSideInsp(el){
    <p class="hint">Click <b>+ Wall port</b>, then click the floor plan where each jack is. Select a wall port to patch it to a rack port and see the device behind it.</p>
    <div class="btnrow">${delBtn("site","Delete site")}</div>`;
 }
-function renderJackInsp(el,s,p){
-  const t=trace(p), dups=dupSet();
-  const lk=p.link||{};
-  const racksHere=siteRacks();
-  const r=S.racks[lk.r], d=devById(r,lk.d);
-  const jm=jackMap();
-  el.innerHTML=`${roNote()}<button class="back" data-back="site">← ${esc(s.name)}</button><h2>Wall port ${esc(p.label)}</h2><p class="sub">${esc(floorName(s,p.floor))}${p.room?" · "+esc(p.room):""}</p>
-   <div class="trace">
-     <div class="hop"><span><b>${esc(p.endpoint||"Connected device")}</b><small>${esc(p.eip||"no IP")}${p.mac?" · "+esc(p.mac):""}</small></span></div>
-     <div class="hop"><span><b>Wall port ${esc(p.label)}</b><small>${esc(p.room||floorName(s,p.floor))}${p.cable?" · cable "+esc(p.cable):""}</small></span></div>
+let openJ=0;
+function jackPortBlock(s,p,j,dups,jm){
+  const x=jp(p)[j], t=trace(p,j), lk=x.link||{}, r=S.racks[lk.r], d=devById(r,lk.d), multi=jp(p).length>1;
+  const body=`<div class="trace">
+     <div class="hop"><span><b>${esc(x.endpoint||"Connected device")}</b><small>${esc(x.eip||"no IP")}${x.mac?" · "+esc(x.mac):""}</small></span></div>
+     <div class="hop"><span><b>Wall port ${esc(jname(p,j))}</b><small>${esc(p.room||floorName(s,p.floor))}${x.cable?" · cable "+esc(x.cable):""}</small></span></div>
      ${t?`<div class="hop"><span><b>${esc(portName(t.d,t.pi))}</b><small>${esc(t.r.name)}</small><br><button class="linkbtn" data-showrack="${t.r.id}:${t.d.id}:${t.pi}">Show in rack</button></span></div>
        ${t.o?`<div class="hop last"><span><b>${esc(portName(t.o,t.oi))}</b><small>${t.op.vlan?"VLAN "+esc(t.op.vlan):"no VLAN set"}${t.o.ip?" · "+esc(t.o.ip):""}${t.op.cable?" · patch "+esc(t.op.cable):""}</small><br><button class="linkbtn" data-showrack="${t.r.id}:${t.o.id}:${t.oi}">Show in rack</button></span></div>`
         :`<div class="hop last"><span class="gap">The patch panel port isn't connected to a switch yet.</span></div>`}`
       :`<div class="hop last"><span class="gap">Not patched to a rack yet. Choose the panel port below.</span></div>`}
    </div>
-   <div class="fields" data-scope="pin">${fld("Wall port label","label",p.label,{mono:true,ph:"2-14"})}${fld("Floor","floor",p.floor,{select:s.floors.map(f=>[f.id,f.name])})}
-   ${fld("Room / area","room",p.room,{full:true,ph:"e.g. Reception, Office 204"})}</div>
    <div class="sech">Patched to</div>
-   <div class="fields" data-scope="pin">
-   ${fld("Rack","lr",lk.r||"",{full:true,select:[["","Not patched"],...racksHere.map(x=>[x.id,x.name])]})}
-   ${r?fld("Device","ld",lk.d||"",{full:true,select:[["","Choose a device…"],...r.devices.filter(x=>x.ports.length).map(x=>[x.id,x.name+(x.model?" · "+x.model:"")])]}):""}
-   ${d?fld("Port","lp",lk.p??"",{full:true,select:[["","Choose a port…"],...d.ports.map((op,i)=>{ const other=jm[`${r.id}:${d.id}:${i}`]; return [i,`${op.kind.toUpperCase()} ${op.n}${op.label?" ("+op.label+")":""}${other&&other.p.id!==p.id?" — wall port "+other.p.label:""}`]; })]}):""}
-   ${fld("Cable ID","cable",p.cable||"",{mono:true,ph:"W-214"})}</div>
-   <div class="sech">Plugged into this wall port</div>
-   <div class="fields" data-scope="pin">${fld("Device","endpoint",p.endpoint,{full:true,ph:"e.g. Reception PC, Printer HP-2F"})}
-   ${fld("Device IP","eip",p.eip,{mono:true,ph:"10.0.20.45",bad:p.eip&&dups.has(p.eip.trim())})}${fld("MAC","mac",p.mac,{mono:true})}
-   ${fld("Notes","note",p.note,{area:true})}</div>
+   <div class="fields" data-scope="pinport" data-j="${j}">
+   ${fld("Rack","lr",lk.r||"",{idx:j,full:true,select:[["","Not patched"],...siteRacks().map(z=>[z.id,z.name])]})}
+   ${r?fld("Device","ld",lk.d||"",{idx:j,full:true,select:[["","Choose a device…"],...r.devices.filter(z=>z.ports.length).map(z=>[z.id,z.name+(z.model?" · "+z.model:"")])]}):""}
+   ${d?fld("Port","lp",lk.p??"",{idx:j,full:true,select:[["","Choose a port…"],...d.ports.map((op,i)=>{ const other=jm[`${r.id}:${d.id}:${i}`]; return [i,`${op.kind.toUpperCase()} ${op.n}${op.label?" ("+op.label+")":""}${other&&!(other.p.id===p.id&&other.j===j)?" — wall port "+jname(other.p,other.j):""}`]; })]}):""}
+   ${fld("Cable ID","cable",x.cable||"",{idx:j,mono:true,ph:"W-214"})}</div>
+   <div class="sech">Plugged into this port</div>
+   <div class="fields" data-scope="pinport" data-j="${j}">${fld("Device","endpoint",x.endpoint,{idx:j,full:true,ph:"e.g. Reception PC, Printer HP-2F"})}
+   ${fld("Device IP","eip",x.eip,{idx:j,mono:true,ph:"10.0.20.45",bad:x.eip&&dups.has(x.eip.trim())})}${fld("MAC","mac",x.mac,{idx:j,mono:true})}</div>`;
+  if(!multi) return body;
+  const sum=t?`${portName(t.d,t.pi)}${t.o?" → "+portName(t.o,t.oi):""}`:"Not patched";
+  return `<details class="jport" data-j="${j}" ${j===openJ?"open":""}><summary><b>Port ${letter(j)}</b><span>${esc(sum)}${x.endpoint?" · "+esc(x.endpoint):""}</span></summary>${body}</details>`;
+}
+function renderJackInsp(el,s,p){
+  const ports=jp(p), dups=dupSet(), jm=jackMap(); if(openJ>=ports.length) openJ=0;
+  el.innerHTML=`${roNote()}<button class="back" data-back="site">← ${esc(s.name)}</button><h2>Wall port ${esc(p.label)}</h2><p class="sub">${esc(floorName(s,p.floor))}${p.room?" · "+esc(p.room):""} · ${ports.length} port${ports.length===1?"":"s"}</p>
+   <div class="fields" data-scope="pin">${fld("Wall port label","label",p.label,{mono:true,ph:"2-14"})}${fld("Floor","floor",p.floor,{select:s.floors.map(f=>[f.id,f.name])})}
+   ${fld("Room / area","room",p.room,{ph:"e.g. Office 204"})}
+   <label>Ports on this plate<span class="stepper"><button type="button" data-act="jminus" ${readOnly||ports.length<=1?"disabled":""} aria-label="Remove a port">−</button><input id="f_nports" data-k="nports" type="number" min="1" max="12" value="${ports.length}" ${readOnly?"disabled":""}><button type="button" data-act="jplus" ${readOnly||ports.length>=12?"disabled":""} aria-label="Add a port">+</button></span></label></div>
+   ${ports.length>1?`<p class="hint" style="margin-top:-8px">Each port is labelled ${esc(jname(p,0))}, ${esc(jname(p,1))}${ports.length>2?"…":""} and is patched separately.</p>`:""}
+   ${ports.map((_,j)=>jackPortBlock(s,p,j,dups,jm)).join("")}
+   <div class="fields" data-scope="pin" style="margin-top:14px">${fld("Notes","note",p.note,{area:true})}</div>
    <p class="hint">To move this wall port, drag its marker on the floor plan, click <b>Move on plan</b> and then the new spot, or use the arrow keys (hold Shift for bigger steps).</p>
    <div class="btnrow"><button class="btn${placeMode==="move"?" on":""}" data-act="movepin" ${readOnly?"disabled":""}>${placeMode==="move"?"Click the new spot… (Esc)":"Move on plan"}</button>${delBtn("pin:"+p.id,"Delete wall port")}</div>`;
+}
+function setJackPorts(p,n){
+  const ports=jp(p); n=Math.max(1,Math.min(12,n|0)); if(n===ports.length) return;
+  if(n>ports.length){ while(ports.length<n) ports.push(newJackPort()); openJ=n-1; toast(`Wall port ${p.label} now has ${n} ports.`); }
+  else { const gone=ports.slice(n), lost=gone.filter(x=>x.link||x.endpoint||x.eip).length; ports.length=n; if(openJ>=n) openJ=n-1;
+    toast(`Wall port ${p.label} now has ${n} port${n===1?"":"s"}.${lost?` Removed ${lost} port${lost===1?"":"s"} that had a patch or device recorded.`:""}`); }
+  saveSite();
 }
 function renderRackPinInsp(el,s,p){
   const r=S.racks[p.rack];
@@ -909,7 +946,7 @@ function placePin(e){
   s.pins ||= [];
   if(placeMode==="move"){ const p=s.pins.find(z=>z.id===sel.pin); placeMode=null; if(p){ p.x=x; p.y=y; p.floor=f.id; saveSite(); toast(`${p.kind==="rack"?"Rack marker":"Wall port "+p.label} moved.`); } else renderSite(); return; }
   if(placeMode==="jack"){ const used=new Set(s.pins.map(p=>p.label)); let i=s.pins.filter(p=>p.kind==="jack").length+1; while(used.has(`WP-${pad2(i)}`)) i++;
-    const p={id:uid(),kind:"jack",floor:f.id,x,y,label:`WP-${pad2(i)}`,room:"",link:null,cable:"",endpoint:"",eip:"",mac:"",note:""}; s.pins.push(p); sel={dev:null,port:null,slot:null,pin:p.id}; }
+    const p={id:uid(),kind:"jack",floor:f.id,x,y,label:`WP-${pad2(i)}`,room:"",ports:[newJackPort()],note:""}; s.pins.push(p); sel={dev:null,port:null,slot:null,pin:p.id}; }
   else { const taken=new Set(s.pins.filter(p=>p.kind==="rack").map(p=>p.rack)); const r=siteRacks().find(x=>!taken.has(x.id));
     const p={id:uid(),kind:"rack",floor:f.id,x,y,label:"",room:"",rack:r?.id||""}; s.pins.push(p); sel={dev:null,port:null,slot:null,pin:p.id}; placeMode=null; }
   saveSite();
@@ -1083,13 +1120,14 @@ document.addEventListener("click",e=>{
   if(act==="addfloor"){ if(readOnly) return; const f={id:uid(),name:`Floor ${s.floors.length+1}`,plan:null}; s.floors.push(f); curFloor=f.id; sel.pin=null; saveSite(); return; }
   if(act==="placejack"||act==="placerack"){ const m=act==="placejack"?"jack":"rack"; placeMode = placeMode===m?null:m; if(placeMode) toast(m==="jack"?"Click the floor plan where each wall port is. Press Esc when done.":"Click where the rack sits on the floor plan."); renderSite(); return; }
   if(act==="editplan") return openPlanEditor();
+  if(act==="jplus"||act==="jminus"){ const p=site()?.pins.find(z=>z.id===sel.pin); if(p) setJackPorts(p,jp(p).length+(act==="jplus"?1:-1)); return; }
   if(act==="movepin"){ placeMode = placeMode==="move"?null:"move"; if(placeMode){ const p=site()?.pins.find(z=>z.id===sel.pin); if(p&&p.floor!==floor()?.id){ curFloor=p.floor; } toast("Click the floor plan where this marker should go."); } render(); return; }
   if(act==="zin"){ zoom=Math.min(4,+(zoom*1.25).toFixed(2)); renderSite(); return; }
   if(act==="zout"){ zoom=Math.max(.5,+(zoom/1.25).toFixed(2)); renderSite(); return; }
   if(act==="zfit"){ zoom=1; renderSite(); return; }
-  if(t.dataset.pin){ selectPin(t.dataset.pin); return; }
-  if(t.dataset.pinrow){ const p=pinsAll().find(x=>x.p.id===t.dataset.pinrow); if(p){ curSite=p.s.id; curFloor=p.p.floor; view="site"; selectPin(p.p.id); } return; }
-  if(t.dataset.showpin){ const p=pinsAll().find(x=>x.p.id===t.dataset.showpin); if(p){ curSite=p.s.id; curFloor=p.p.floor; view="site"; selectPin(p.p.id); } return; }
+  if(t.dataset.pin){ if(t.dataset.pin!==sel.pin) openJ=0; selectPin(t.dataset.pin); return; }
+  if(t.dataset.pinrow){ openJ=+(t.dataset.j||0); const p=pinsAll().find(x=>x.p.id===t.dataset.pinrow); if(p){ curSite=p.s.id; curFloor=p.p.floor; view="site"; selectPin(p.p.id); } return; }
+  if(t.dataset.showpin){ openJ=+(t.dataset.j||0); const p=pinsAll().find(x=>x.p.id===t.dataset.showpin); if(p){ curSite=p.s.id; curFloor=p.p.floor; view="site"; selectPin(p.p.id); } return; }
   if(t.dataset.showrack){ const [rid,did,pi]=t.dataset.showrack.split(":"); curId=rid; view="rack"; select(did,+pi); return; }
   if(t.dataset.openrack){ curId=t.dataset.openrack; view="rack"; select(null); return; }
   if(t.dataset.type && t.closest("#lib")){ if(!r) return toast(site()?"Create a rack first.":"Add a site first."); if(readOnly) return; const h=TYPES[t.dataset.type].h, u=firstFree(r,h); if(u==null) return toast(`No ${h}U gap left in this rack.`); const d=newDevice(r,t.dataset.type,u); r.devices.push(d); view="rack"; sel={dev:d.id,port:null,slot:null,pin:null}; saveRack(); afterAdd(d); return; }
@@ -1106,10 +1144,10 @@ document.addEventListener("click",e=>{
   if(t.dataset.nudge){ const d=devById(r,sel.dev); if(d) nudge(d,+t.dataset.nudge); return; }
   if(t.dataset.del){ if(armed!==t.dataset.del){ armed=t.dataset.del; renderInsp(); return; }
     const k=t.dataset.del; armed=null;
-    if(k==="rack"){ const id=curId; for(const x of pinsAll()) if(x.p.link?.r===id || x.p.rack===id){ if(x.p.link?.r===id) x.p.link=null; if(x.p.rack===id) x.p.rack=""; persist("sites",x.s.id); }
+    if(k==="rack"){ const id=curId; for(const x of pinsAll()){ let ch=false; for(const jpo of jp(x.p)) if(jpo.link?.r===id){ jpo.link=null; ch=true; } if(x.p.rack===id){ x.p.rack=""; ch=true; } if(ch) persist("sites",x.s.id); }
       delete S.racks[id]; persist("racks",id); curId=null; pickDefaults(); render(); toast("Rack deleted."); return; }
     if(k.startsWith("dev:")){ const id=k.slice(4), d=devById(r,id); d.ports.forEach((_,i)=>unlinkPort(r,d,i));
-      for(const x of pinsAll()) if(x.p.link?.r===r.id && x.p.link.d===id){ x.p.link=null; persist("sites",x.s.id); }
+      for(const x of pinsAll()) for(const jpo of jp(x.p)) if(jpo.link?.r===r.id && jpo.link.d===id){ jpo.link=null; persist("sites",x.s.id); }
       r.devices=r.devices.filter(x=>x.id!==id); sel={dev:null,port:null,slot:null,pin:null}; saveRack(); toast(`${d.name} removed.`); return; }
     if(k==="site"){ const id=curSite; const plans=s.floors.filter(f=>f.plan?.asset).map(f=>f.plan.asset);
       for(const f of s.floors) dropPlanStorage(f.plan);
@@ -1135,10 +1173,14 @@ document.addEventListener("change",e=>{
   let v=t.value;
   if(scope==="site"){ const s=site(); s[k]=k==="address"||k==="notes"?v.trim():v.trim(); if(k==="name"&&!s.name) s.name="Untitled site"; saveSite(); return; }
   if(scope==="floor"){ const f=site().floors.find(x=>x.id===scopeEl.dataset.fid); f.name=v.trim()||f.name; saveSite(); return; }
+  if(scope==="pinport"){ const s=site(), p=s.pins.find(x=>x.id===sel.pin); if(!p) return; const j=+scopeEl.dataset.j, x=jp(p)[j]; if(!x) return; openJ=j;
+    if(k==="lr"){ x.link = v ? {r:v,d:null,p:null} : null; }
+    else if(k==="ld"){ x.link={r:x.link.r,d:v||null,p:null}; }
+    else if(k==="lp"){ if(v===""){ x.link.p=null; } else { const key=`${x.link.r}:${x.link.d}:${v}`; const other=jackMap()[key]; if(other&&!(other.p.id===p.id&&other.j===j)){ other.x.link=null; persist("sites",other.s.id); toast(`Moved from wall port ${jname(other.p,other.j)}.`); } x.link.p=+v; } }
+    else x[k]=v.trim();
+    saveSite(); return; }
   if(scope==="pin"){ const s=site(), p=s.pins.find(x=>x.id===sel.pin); if(!p) return;
-    if(k==="lr"){ p.link = v ? {r:v,d:null,p:null} : null; }
-    else if(k==="ld"){ p.link={r:p.link.r,d:v||null,p:null}; }
-    else if(k==="lp"){ if(v===""){ p.link.p=null; } else { const key=`${p.link.r}:${p.link.d}:${v}`; const other=jackMap()[key]; if(other&&other.p.id!==p.id){ other.p.link=null; persist("sites",other.s.id); toast(`Moved from wall port ${other.p.label}.`); } p.link.p=+v; } }
+    if(k==="nports"){ setJackPorts(p,parseInt(v)||1); return; }
     else if(k==="floor"){ p.floor=v; curFloor=v; }
     else p[k]=v.trim();
     saveSite(); return; }
@@ -1292,7 +1334,7 @@ async function loadSample(){
   Object.assign(srv.ports[4],{label:"iDRAC",ip:"10.0.10.111"}); sw.ports[0].vlan="20";
   const S2={id:uid(),name:"Head Office (sample)",address:"123 Example Street\nSample City",contact:"",notes:"Sample site. Replace with your own.",floors:[{id:uid(),name:"Ground floor",plan:null}],pins:[]};
   R.siteId=S2.id; const fl=S2.floors[0].id;
-  const J=(label,x,y,room,port,endpoint,eip)=>S2.pins.push({id:uid(),kind:"jack",floor:fl,x:x/1600,y:y/1000,label,room,link:port==null?null:{r:R.id,d:pp.id,p:port},cable:"W-"+label,endpoint:endpoint||"",eip:eip||"",mac:"",note:""});
+  const J=(label,x,y,room,port,endpoint,eip)=>S2.pins.push({id:uid(),kind:"jack",floor:fl,x:x/1600,y:y/1000,label,room,ports:[{link:port==null?null:{r:R.id,d:pp.id,p:port},cable:"W-"+label,endpoint:endpoint||"",eip:eip||"",mac:""}],note:""});
   J("1-01",120,60,"Reception",0,"Reception PC","10.0.20.21"); J("1-02",380,60,"Reception",1,"Reception phone","10.0.30.11"); J("1-03",480,200,"Open office",2,"Desk 3 PC","10.0.20.33");
   J("1-04",700,580,"Open office",3,"Printer","10.0.20.50"); J("1-05",60,470,"Office 101",4); J("1-06",1140,450,"Meeting room",5,"Meeting room display","10.0.20.60"); J("1-07",620,940,"Office 103",null);
   S2.pins.push({id:uid(),kind:"rack",floor:fl,x:1360/1600,y:170/1000,label:"",room:"Server room",rack:R.id});
@@ -1369,7 +1411,7 @@ function doImport(text){
     for(const s of slist){ if(!s||typeof s!=="object") continue; const ns=clone(s); ns.id=uid(); siteMap[s.id]=ns.id; ns.name=ns.name||"Imported site"; ns.floors=(ns.floors||[]).map(f=>({id:f.id||uid(),name:f.name||"Floor",plan:f.plan&&f.plan.asset&&IN_CLAUDE?f.plan:null,_img:f.plan?.image&&data.images?.[f.plan.image]?{data:data.images[f.plan.image],w:f.plan.w,h:f.plan.h,rot:f.plan.rot,crop:f.plan.crop}:null})); if(!ns.floors.length) ns.floors=[{id:uid(),name:"Ground floor",plan:null}]; ns.pins=ns.pins||[]; S.sites[ns.id]=ns; }
     let added=0; for(const r of rlist){ if(!r||typeof r!=="object") continue; const {rack:nr,map}=normRack(r); rackMap[r.id]=nr.id; devMaps[r.id]=map;
       nr.siteId = siteMap[r.siteId] || (S.sites[r.siteId]?r.siteId:"") || curSite || ""; S.racks[nr.id]=nr; persist("racks",nr.id); curId=nr.id; added++; }
-    for(const s of slist){ const ns=S.sites[siteMap[s.id]]; if(!ns) continue; for(const p of ns.pins){ p.id=uid(); if(p.link){ const nr=rackMap[p.link.r], nd=devMaps[p.link.r]?.[p.link.d]; p.link = nr&&nd ? {r:nr,d:nd,p:p.link.p} : null; } if(p.rack) p.rack=rackMap[p.rack]||""; } persist("sites",ns.id); }
+    for(const s of slist){ const ns=S.sites[siteMap[s.id]]; if(!ns) continue; for(const p of ns.pins){ p.id=uid(); for(const x of jp(p)) if(x.link){ const nr=rackMap[x.link.r], nd=devMaps[x.link.r]?.[x.link.d]; x.link = nr&&nd ? {r:nr,d:nd,p:x.link.p} : null; } if(p.rack) p.rack=rackMap[p.rack]||""; } persist("sites",ns.id); }
     if(slist.length){ curSite=siteMap[slist[0].id]; curFloor=null; }
     // restore floor plan images included in the backup
     (async()=>{ let ok=0; for(const id of Object.values(siteMap)){ const ns=S.sites[id]; if(!ns) continue; let changed=false;
@@ -1415,7 +1457,7 @@ function exportCsv(){ const r=rack(); const s=site(); if(!r&&!s) return toast("S
   const c=v=>`"${String(v??"").replace(/"/g,'""')}"`; const lines=[["section","from","to","cable_id","color","length","ip","vlan","mac"].join(",")];
   if(r){ for(const x of cableRows(r)) lines.push(["cable",x.a,x.b,x.cable,x.color,x.len,"","",""].map(c).join(","));
     for(const x of ipRows(r)) lines.push(["ip",x.what,"","","","",x.ip,x.vlan,x.mac].map(c).join(",")); }
-  if(s) for(const p of (s.pins||[]).filter(p=>p.kind==="jack")){ const t=trace(p); lines.push(["wall_port",`Wall port ${p.label} · ${floorName(s,p.floor)}${p.room?" · "+p.room:""}`,t?`${portName(t.d,t.pi)}${t.o?" → "+portName(t.o,t.oi):""}`:"",p.cable||"","","",p.eip||"",t?.op?.vlan||"",p.mac||""].map(c).join(",")); }
+  if(s) for(const p of (s.pins||[]).filter(p=>p.kind==="jack")) jp(p).forEach((x,j)=>{ const t=trace(p,j); lines.push(["wall_port",`Wall port ${jname(p,j)} · ${floorName(s,p.floor)}${p.room?" · "+p.room:""}${x.endpoint?" · "+x.endpoint:""}`,t?`${portName(t.d,t.pi)}${t.o?" → "+portName(t.o,t.oi):""}`:"",x.cable||"","","",x.eip||"",t?.op?.vlan||"",x.mac||""].map(c).join(",")); });
   offer(`${(r?.name||s.name).replace(/[^\w-]+/g,"_")}-cables-ips.csv`, lines.join("\n")); }
 
 let tt; function toast(m){ let el=$("#toast"); if(!el){ el=document.createElement("div"); el.id="toast"; el.className="toast"; el.setAttribute("role","status"); document.body.appendChild(el); } el.textContent=m; el.hidden=false; clearTimeout(tt); tt=setTimeout(()=>el.hidden=true,3400); }
