@@ -1,0 +1,60 @@
+# RackGrid
+
+Track your server racks, network cables, IP addresses, site floor plans and wall ports in the browser. RackGrid is a single HTML file with no server, no build step and no sign-up.
+
+![Site view with floor plan and wall ports](docs/screenshot-site.png)
+
+![Rack view with devices, ports and cables](docs/screenshot-rack.png)
+
+## Features
+
+- **Sites**: switch between buildings with the site menu. Each site has an address (with an Open in Maps link), a contact, notes and floors.
+- **Floor plans**: upload a PNG, JPG, WebP, SVG or PDF for each floor, then rotate, straighten and crop it.
+- **Wall ports**: place jacks on the floor plan and patch each one to a patch panel port. Click a wall port to trace it: device → wall port → patch panel → switch port and VLAN.
+- **Racks**: drag devices from the library into rack units, drag them to move, and drag a device's bottom edge to resize it. The library includes patch panels (24 and 48 port), fiber panels, switches, routers, firewalls, servers, NAS, UPS, UPS battery packs, PDUs, cable managers, shelves, blanks and custom devices with any height and port count.
+- **Cables**: connect ports by clicking or dragging. Drag one end of a cable to another port to re-patch it while the other end stays put. Record cable ID, color and length.
+- **IP addresses**: record management IPs, port IPs and the devices plugged into wall ports. Duplicate IPs across a site are flagged.
+- **Battery tracking**: record install and replace-by dates for UPS units and battery packs, with overdue warnings.
+- **Search** across devices, ports, wall ports, IPs, MACs and cable IDs.
+- **Import and export**: full JSON backups (including floor plan images), CSV export of cables, IPs and wall ports, and CSV import of device lists.
+- Works on desktop and mobile, in light and dark mode.
+
+## Run it
+
+**Locally:** download `index.html` and open it in Chrome, Edge, Firefox or Safari.
+
+**On GitHub Pages:**
+
+1. Create a new repository on GitHub, for example `rackgrid`.
+2. Upload `index.html`, `README.md` and the `docs` folder (Add file → Upload files), then commit.
+3. Go to **Settings → Pages**. Under **Build and deployment**, choose **Deploy from a branch**, select `main` and `/ (root)`, then click **Save**.
+4. After a minute your copy is live at `https://<your-username>.github.io/rackgrid/`.
+
+On first open, click **Try with sample data** to explore, or **Add a site** to start with your own.
+
+## Where your data is stored
+
+Everything stays in **your browser** on the computer you're using. Sites and racks are kept in local storage, and floor plan images in IndexedDB. Nothing is sent to GitHub or anywhere else.
+
+That means:
+
+- Each browser and each computer has its own separate data.
+- Clearing your browser's site data deletes it.
+- **Use Backup (.json) regularly.** The backup includes floor plan images. Use **Import…** to restore it in another browser or on another computer.
+
+Don't commit backups to a public repository. They contain your network layout and IP addresses.
+
+## CSV device import
+
+```csv
+name,type,u,height,ip,model,serial,rj45,sfp,lc
+SW01,switch48,40,1,10.0.0.2,Cisco C9200-48T,FOC1234,48,4,0
+SRV01,server,30,2,10.0.10.11,Dell R650,,4,0,0
+KVM01,custom,28,1,,KVM switch,,8,0,0
+```
+
+Types: `patch`, `patch48`, `fiber`, `switch`, `switch48`, `router`, `firewall`, `server`, `nas`, `ups`, `battery`, `pdu`, `manager`, `shelf`, `blank`, `custom`. Leave `u` blank to use the first free slot.
+
+## Tech
+
+A single self-contained `index.html` with plain HTML, CSS and JavaScript. It loads fonts from Google Fonts, and loads PDF.js from cdnjs only when you import a PDF floor plan.

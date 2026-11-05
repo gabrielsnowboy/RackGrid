@@ -1,0 +1,4 @@
+# Backups contain your network layout and IP addresses
+rackgrid-backup-*.json
+*-cables-ips.csv
+.DS_Store

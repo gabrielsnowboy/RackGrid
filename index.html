@@ -1,0 +1,1374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="RackGrid: track server racks, network cables, IP addresses, site floor plans and wall ports in your browser.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2022%2022%22%3E%3Crect%20x%3D%222%22%20y%3D%221.5%22%20width%3D%2218%22%20height%3D%2219%22%20rx%3D%222%22%20fill%3D%22%23fff%22%20stroke%3D%22%231d5bd3%22%20stroke-width%3D%221.8%22/%3E%3Crect%20x%3D%225%22%20y%3D%225%22%20width%3D%2212%22%20height%3D%223%22%20fill%3D%22%231d5bd3%22/%3E%3Crect%20x%3D%225%22%20y%3D%229.5%22%20width%3D%2212%22%20height%3D%223%22%20fill%3D%22%231d5bd3%22%20opacity%3D%22.6%22/%3E%3Crect%20x%3D%225%22%20y%3D%2214%22%20width%3D%2212%22%20height%3D%223%22%20fill%3D%22%231d5bd3%22%20opacity%3D%22.35%22/%3E%3C/svg%3E">
+<title>RackGrid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<style>
+/* Layout: three-pane console — library/racks | rack elevation with cable gutter | inspector */
+:root{
+  --bg:#e9edf1; --panel:#ffffff; --rack:#f6f8fa; --rail:#dfe4ea;
+  --ink:#15202b; --muted:#5c6876; --line:#d2d9e1; --soft:#eef2f6;
+  --accent:#1d5bd3; --accent-soft:#e3ecfd; --port:#ffffff; --port-edge:#8a96a4;
+  --port-on:#1a2531; --warn:#b4410f; --warn-soft:#fdebe2; --ok:#17784a;
+  --f-ui:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-tag:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1318; --panel:#151c23; --rack:#11171d; --rail:#232d37;
+  --ink:#e4e9ee; --muted:#8a96a3; --line:#28323c; --soft:#1b232b;
+  --accent:#6b9dff; --accent-soft:#1c2a44; --port:#0e1318; --port-edge:#5f6c79;
+  --port-on:#d7dee6; --warn:#ff8a57; --warn-soft:#3a2016; --ok:#4cc38a; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0e1318; --panel:#151c23; --rack:#11171d; --rail:#232d37;
+  --ink:#e4e9ee; --muted:#8a96a3; --line:#28323c; --soft:#1b232b;
+  --accent:#6b9dff; --accent-soft:#1c2a44; --port:#0e1318; --port-edge:#5f6c79;
+  --port-on:#d7dee6; --warn:#ff8a57; --warn-soft:#3a2016; --ok:#4cc38a; color-scheme:dark }
+
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:14px;line-height:1.4}
+*{box-sizing:border-box}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{display:grid;grid-template-columns:236px minmax(0,1fr) 330px;gap:0;height:100%;
+  padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.pane{background:var(--panel);border-right:1px solid var(--line);overflow:auto;min-width:0}
+.pane.right{border-right:0;border-left:1px solid var(--line)}
+.center{display:flex;flex-direction:column;min-width:0;overflow:hidden}
+
+/* sidebar */
+.brand{display:flex;align-items:center;gap:10px;padding:16px 16px 12px}
+.brand b{font-family:var(--f-tag);font-size:22px;letter-spacing:.04em;text-transform:uppercase;font-weight:600}
+.brand svg{flex:none}
+.sec{padding:10px 16px;border-top:1px solid var(--line)}
+.sec h3{margin:0 0 8px;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.racklist{display:flex;flex-direction:column;gap:2px}
+.racklist button{display:flex;justify-content:space-between;gap:8px;text-align:left;border:0;background:none;padding:7px 8px;border-radius:6px}
+.racklist button:hover{background:var(--soft)}
+.racklist button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.racklist small{color:var(--muted);font-family:var(--f-mono);font-size:11px}
+.lib{display:flex;flex-direction:column;gap:2px}
+.lib button{display:flex;align-items:center;gap:10px;border:1px solid transparent;background:none;padding:6px 8px;border-radius:6px;text-align:left;cursor:grab}
+.lib button:hover{background:var(--soft);border-color:var(--line)}
+.lib .glyph{width:34px;height:14px;border:1.5px solid var(--port-edge);border-radius:2px;flex:none;display:grid;grid-auto-flow:column;gap:1px;padding:2px}
+.lib .glyph i{background:var(--port-edge);border-radius:1px}
+.lib small{margin-left:auto;color:var(--muted);font-family:var(--f-mono);font-size:11px}
+.hint{color:var(--muted);font-size:12px;margin:0 0 8px}
+.btnrow{display:flex;flex-wrap:wrap;gap:6px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:6px 10px;border-radius:6px;font-weight:500;font-size:13px}
+.btn:hover{border-color:var(--port-edge)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.danger{color:var(--warn)}
+.btn.danger.arm{background:var(--warn);border-color:var(--warn);color:#fff}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* top bar */
+.bar{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.crumb{min-width:0}
+.crumb h1{margin:0;font-size:18px;font-weight:600;text-wrap:balance}
+.crumb p{margin:0;color:var(--muted);font-size:12px}
+.search{margin-left:auto;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:6px;padding:5px 8px;background:var(--bg);min-width:0;flex:0 1 280px}
+.search input{border:0;background:none;outline:0;min-width:0;width:100%}
+.tabs{display:flex;gap:2px;background:var(--soft);padding:3px;border-radius:7px}
+.tabs button{border:0;background:none;padding:5px 12px;border-radius:5px;font-weight:500;font-size:13px}
+.tabs button.on{background:var(--ink);color:var(--panel)}
+.toggle{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+
+.stage{flex:1;overflow:auto;padding:24px 16px 40px}
+.rackwrap{position:relative;margin:0 auto;width:max-content;padding-right:100px}
+.rack{position:relative;display:grid;grid-template-columns:40px 680px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 0 14px 0}
+.ucol{position:relative}
+.ucol span{position:absolute;right:8px;font-family:var(--f-mono);font-size:11px;color:var(--muted);transform:translateY(-50%)}
+.body{position:relative;background:var(--rack);border-left:10px solid var(--rail);border-right:10px solid var(--rail);margin-right:14px}
+.slot{position:absolute;left:0;right:0;border-bottom:1px dashed var(--line);display:flex;align-items:center;justify-content:center;color:transparent;font-size:12px}
+.slot:hover{color:var(--muted);background:var(--soft)}
+.slot.pick{background:var(--accent-soft);color:var(--accent)}
+.ghost{position:absolute;left:0;right:0;border:2px dashed var(--accent);background:var(--accent-soft);border-radius:4px;pointer-events:none;z-index:4;opacity:.9}
+.ghost.bad{border-color:var(--warn);background:var(--warn-soft)}
+
+.dev{position:absolute;left:0;right:0;display:flex;background:var(--panel);border:1px solid var(--line);border-radius:3px;z-index:2;cursor:pointer;transition:box-shadow .12s}
+.dev:hover{box-shadow:0 0 0 1px var(--port-edge)}
+.dev.sel{box-shadow:0 0 0 2px var(--accent);z-index:3}
+.dev.dim{opacity:.35}
+.dev.hit{box-shadow:0 0 0 2px var(--ok)}
+.dev .tag{width:30px;flex:none;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--line);background:var(--soft);cursor:grab;
+  background-image:radial-gradient(var(--port-edge) 1px,transparent 1.2px);background-size:5px 5px;background-position:center}
+.dev .tag b{background:var(--soft);padding:2px 0}
+.dev{cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.dev.dragging{z-index:20;cursor:grabbing;box-shadow:0 10px 24px rgba(0,0,0,.25),0 0 0 2px var(--accent);opacity:.92;transition:none}
+.dev.dragging .port{pointer-events:none}
+body.dragging-any,body.dragging-any *{cursor:grabbing!important;user-select:none!important}
+.ghost::after{content:attr(data-label);position:absolute;left:calc(100% + 18px);top:50%;transform:translateY(-50%);font-family:var(--f-mono);font-size:11px;font-weight:500;color:var(--accent);white-space:nowrap;background:var(--panel);padding:2px 6px;border-radius:4px;border:1px solid var(--accent)}
+.ghost.bad::after{color:var(--warn);border-color:var(--warn)}
+.dragchip{position:fixed;z-index:70;pointer-events:none;background:var(--ink);color:var(--panel);font-size:12px;font-weight:600;padding:5px 10px;border-radius:5px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.cables.hide{opacity:0}
+.dev .rz{position:absolute;left:30px;right:0;bottom:-3px;height:8px;cursor:ns-resize;z-index:4;touch-action:none}
+.dev .rz::after{content:"";position:absolute;left:50%;bottom:3px;width:34px;height:3px;margin-left:-17px;border-radius:2px;background:var(--port-edge);opacity:0;transition:opacity .12s}
+.dev:hover .rz::after,.dev.sel .rz::after,.dev.resizing .rz::after{opacity:.9}
+.dev.resizing{z-index:20;box-shadow:0 0 0 2px var(--accent);transition:none}
+.face .meta small.due{color:var(--warn);font-weight:600}
+.face.batt{background:repeating-linear-gradient(90deg,transparent 0 3px,var(--soft) 3px 4px)}
+.face.batt .cells{margin-left:auto;display:flex;flex-wrap:wrap;gap:4px;max-width:260px;justify-content:flex-end;align-content:center;height:100%;padding:4px 0}
+.face.batt .cells i{width:38px;height:12px;border:1.5px solid var(--port-edge);border-radius:2px;position:relative;background:linear-gradient(90deg,var(--ok) 0 70%,transparent 70%);opacity:.8}
+.face.batt .cells i::after{content:"";position:absolute;right:-4px;top:3px;width:2px;height:4px;background:var(--port-edge)}
+.cx-preview{font-family:var(--f-mono);font-size:12px;color:var(--muted);margin:-4px 0 14px}
+.lib button{touch-action:manipulation}
+.dev .tag b{writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--f-tag);font-size:12px;letter-spacing:.04em;font-weight:600;white-space:nowrap;overflow:hidden;max-height:100%}
+.dev.type-patch .tag,.dev.type-patch48 .tag,.dev.type-fiber .tag{background:var(--accent-soft)}
+.dev.type-fiber .tag b{color:var(--accent)}
+.face{flex:1;display:flex;align-items:center;gap:10px;padding:0 8px;min-width:0;overflow:hidden}
+.face .meta{display:flex;flex-direction:column;min-width:56px;max-width:110px;flex:1 1 auto;line-height:1.15}
+.face .meta b{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.face .meta small{font-family:var(--f-mono);font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.face.blank{background:repeating-linear-gradient(90deg,transparent 0 6px,var(--soft) 6px 8px)}
+.face.mgr{background:repeating-linear-gradient(90deg,var(--soft) 0 18px,transparent 18px 26px)}
+.ports{display:flex;gap:10px;align-items:center;margin-left:auto}
+.grp{display:flex;gap:2px}
+.pcol{display:flex;flex-direction:column;align-items:center;gap:1px}
+.pcol em{font-style:normal;font-family:var(--f-mono);font-size:8px;line-height:9px;color:var(--muted);height:9px}
+.port{width:14px;height:11px;padding:0;border:1.5px solid var(--port-edge);background:var(--port);border-radius:1.5px;position:relative;display:block}
+.port.rj45::after{content:"";position:absolute;left:3px;right:3px;bottom:-1.5px;height:3px;background:var(--rack);border:1.5px solid var(--port-edge);border-bottom:0}
+.port.sfp{width:18px;height:10px;border-radius:1px}
+.port.lc{width:16px;height:11px;border-radius:5px}
+.port.on{background:var(--port-on);border-color:var(--port-on)}
+.port.on::after{background:var(--port-on);border-color:var(--port-on)}
+.port.ext{background:repeating-linear-gradient(45deg,var(--port-on) 0 2px,var(--port) 2px 4px)}
+.port .ipdot{position:absolute;top:-4px;right:-4px;width:6px;height:6px;border-radius:50%;background:var(--ok);border:1px solid var(--panel)}
+.port .ipdot.dup{background:var(--warn)}
+.port.sel{outline:2px solid var(--accent);outline-offset:1px;z-index:2}
+.port.peer{outline:2px dashed var(--accent);outline-offset:1px}
+.port.hit{outline:2px solid var(--ok);outline-offset:1px}
+.port .cc{position:absolute;left:-1px;right:-1px;bottom:-5px;height:2px;border-radius:1px}
+.cables{position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:5}
+.cables path{fill:none;stroke-width:1.6;opacity:.55}
+.cables path.hot{stroke-width:2.6;opacity:1}
+.cables path.cold{opacity:.12}
+.cables path.moving{opacity:.12}
+.cables .dragline{stroke-width:2.6;stroke-dasharray:6 4;opacity:1;fill:none}
+.cables .dragdot{opacity:1}
+.port.on{cursor:grab}
+.port.dragsrc{outline:2px dashed var(--accent);outline-offset:2px}
+.port.drop-ok{outline:2px solid var(--ok);outline-offset:2px;transform:scale(1.3);z-index:3}
+.port.drop-bad{outline:2px solid var(--warn);outline-offset:2px}
+
+/* table tab */
+.tbl{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-bottom:20px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--soft)}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--soft)}
+td.mono,.mono{font-family:var(--f-mono);font-size:12px;font-variant-numeric:tabular-nums}
+.tblhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:0 2px 8px}
+.tblhead h2{font-size:15px;margin:0}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;background:var(--soft);color:var(--muted)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.ok{color:var(--ok)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;border:1px solid var(--line);vertical-align:-1px}
+
+/* inspector */
+.insp{padding:16px}
+.insp h2{margin:0;font-size:17px;font-weight:600}
+.insp .sub{color:var(--muted);font-size:12px;margin:2px 0 14px;font-family:var(--f-mono)}
+.back{border:0;background:none;color:var(--accent);padding:0;margin-bottom:10px;font-weight:500;font-size:13px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px 10px;margin-bottom:16px}
+.fields label{display:flex;flex-direction:column;gap:3px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;min-width:0}
+.fields label.full{grid-column:1/-1}
+.fields input,.fields select,.fields textarea{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:6px 8px;font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink);min-width:0;width:100%}
+.fields input.mono{font-family:var(--f-mono);font-size:12px}
+.fields input.bad{border-color:var(--warn);background:var(--warn-soft)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 16px}
+.stat{background:var(--soft);border-radius:6px;padding:8px 10px}
+.stat b{display:block;font-size:20px;font-variant-numeric:tabular-nums;font-weight:600}
+.stat span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.plist{border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-bottom:16px;max-height:340px;overflow-y:auto}
+.plist button{display:grid;grid-template-columns:34px 1fr auto;gap:8px;align-items:center;width:100%;border:0;border-bottom:1px solid var(--line);background:none;padding:6px 8px;text-align:left;font-size:12px}
+.plist button:last-child{border-bottom:0}
+.plist button:hover{background:var(--soft)}
+.plist .n{font-family:var(--f-mono);color:var(--muted)}
+.plist .to{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plist .ip{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.sech{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:4px 0 8px}
+.empty{padding:20px 16px;color:var(--muted)}
+.notice{background:var(--warn-soft);color:var(--warn);border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:12px}
+
+.emptyrack{max-width:420px;margin:60px auto;text-align:center;color:var(--muted)}
+.emptyrack h2{color:var(--ink);font-size:20px;margin:0 0 6px}
+.emptyrack .btnrow{justify-content:center;margin-top:14px}
+
+/* modal + toast */
+.veil{position:fixed;inset:0;background:rgba(10,15,20,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal{background:var(--panel);border-radius:10px;border:1px solid var(--line);width:min(620px,100%);max-height:90%;overflow:auto;padding:20px}
+.modal h2{margin:0 0 4px;font-size:18px}
+.modal textarea{width:100%;min-height:160px;border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px;font-family:var(--f-mono);font-size:12px}
+.modal pre{background:var(--soft);padding:8px 10px;border-radius:6px;font-family:var(--f-mono);font-size:11px;overflow-x:auto}
+.toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:8px 14px;border-radius:6px;font-size:13px;z-index:60;max-width:calc(100% - 32px)}
+
+@media (max-width:1000px){
+  .app{grid-template-columns:200px minmax(0,1fr)}
+  .pane.right{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}
+  html,body{height:auto}
+  .app{height:auto}
+  .center{min-height:70vh}
+}
+@media (max-width:680px){
+  .app{grid-template-columns:minmax(0,1fr);padding-left:0;padding-right:0}
+  .pane{border-right:0;border-bottom:1px solid var(--line)}
+  .sec,.brand,.bar,.insp{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .lib{display:grid;grid-template-columns:1fr 1fr}
+  .search{flex-basis:100%;margin-left:0}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* sites */
+.sitepick{position:relative;padding:0 12px 12px}
+.sitebtn{width:100%;display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;text-align:left}
+.sitebtn:hover{border-color:var(--port-edge)}
+.sitebtn .pin-ico{flex:none;color:var(--accent)}
+.sitebtn span{display:flex;flex-direction:column;min-width:0;flex:1}
+.sitebtn b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sitebtn small{color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sitemenu{position:absolute;left:12px;right:12px;top:calc(100% - 6px);background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 28px rgba(0,0,0,.18);z-index:30;padding:4px;max-height:320px;overflow:auto}
+.sitemenu button{display:flex;flex-direction:column;width:100%;border:0;background:none;text-align:left;padding:7px 9px;border-radius:6px}
+.sitemenu button:hover{background:var(--soft)}
+.sitemenu button.on{background:var(--accent-soft)}
+.sitemenu button.on b{color:var(--accent)}
+.sitemenu small{color:var(--muted);font-size:11px}
+.sitemenu hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+.sitemenu .add{flex-direction:row;color:var(--accent);font-weight:600}
+
+.sitehead{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:14px}
+.sitehead h2{margin:0;font-size:20px;font-weight:600;text-wrap:balance}
+.sitehead address{font-style:normal;color:var(--muted);white-space:pre-line;margin:4px 0 10px;max-width:60ch}
+.kpis{display:flex;gap:8px;flex-wrap:wrap}
+.kpi{background:var(--soft);border-radius:8px;padding:8px 12px;min-width:92px}
+.kpi b{display:block;font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.kpi span{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.floorbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chipbtn{border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:4px 12px;font-size:13px;font-weight:500}
+.chipbtn.on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.btn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.zoom{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.zoom button{border:0;background:var(--panel);padding:5px 10px;font-weight:600}
+.zoom button+button{border-left:1px solid var(--line)}
+.filebtn{position:relative;overflow:hidden}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+.planscroll{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel);max-height:72vh;margin-bottom:16px}
+.plan{position:relative;min-width:320px;background-color:#fff;
+  background-image:linear-gradient(#e7ecf1 1px,transparent 1px),linear-gradient(90deg,#e7ecf1 1px,transparent 1px);background-size:24px 24px}
+.planimg{position:absolute;inset:0;overflow:hidden;pointer-events:none;background:#fff}
+.plan img{position:absolute;display:block;max-width:none;object-fit:fill;user-select:none;-webkit-user-drag:none;pointer-events:none}
+.modal.wide{width:min(980px,100%)}
+.pe-stage{position:relative;height:min(58vh,540px);background:var(--soft);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;margin-top:10px}
+.pe-wrap{position:relative;overflow:hidden;cursor:crosshair;touch-action:none}
+.pe-wrap canvas{display:block}
+.crop{position:absolute;border:2px solid #fff;outline:1px solid rgba(0,0,0,.35);box-shadow:0 0 0 9999px rgba(10,15,20,.55);cursor:move;
+  background-image:linear-gradient(90deg,transparent calc(33.33% - .5px),rgba(255,255,255,.55) calc(33.33% - .5px),rgba(255,255,255,.55) calc(33.33% + .5px),transparent calc(33.33% + .5px),transparent calc(66.66% - .5px),rgba(255,255,255,.55) calc(66.66% - .5px),rgba(255,255,255,.55) calc(66.66% + .5px),transparent calc(66.66% + .5px)),
+  linear-gradient(transparent calc(33.33% - .5px),rgba(255,255,255,.55) calc(33.33% - .5px),rgba(255,255,255,.55) calc(33.33% + .5px),transparent calc(33.33% + .5px),transparent calc(66.66% - .5px),rgba(255,255,255,.55) calc(66.66% - .5px),rgba(255,255,255,.55) calc(66.66% + .5px),transparent calc(66.66% + .5px))}
+.crop .h{position:absolute;width:14px;height:14px;background:#fff;border:2px solid var(--accent);border-radius:3px;margin:-7px 0 0 -7px}
+.h-nw{left:0;top:0;cursor:nwse-resize}.h-n{left:50%;top:0;cursor:ns-resize}.h-ne{left:100%;top:0;cursor:nesw-resize}.h-e{left:100%;top:50%;cursor:ew-resize}
+.h-se{left:100%;top:100%;cursor:nwse-resize}.h-s{left:50%;top:100%;cursor:ns-resize}.h-sw{left:0;top:100%;cursor:nesw-resize}.h-w{left:0;top:50%;cursor:ew-resize}
+.pe-tools{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-top:12px}
+.pe-fine{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.pe-fine input{width:180px}
+.plan.placing{cursor:crosshair}
+.plan .noplan{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#5c6876;text-align:center;padding:16px;pointer-events:none}
+.plan .noplan b{color:#15202b;font-size:16px}
+.pin{position:absolute;transform:translate(-50%,-50%);border:0;background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:2px;z-index:2;cursor:grab;touch-action:manipulation;-webkit-touch-callout:none;user-select:none}
+.pin i{display:block;width:20px;height:20px;border-radius:5px;background:#fff;border:2px solid #1d5bd3;box-shadow:0 1px 3px rgba(0,0,0,.25);position:relative}
+.pin i::after{content:"";position:absolute;left:4px;right:4px;top:4px;height:6px;border:1.5px solid #1d5bd3;border-top:0}
+.pin.on i{background:#1d5bd3}
+.pin.on i::after{border-color:#fff}
+.pin span{font-family:var(--f-mono);font-size:10px;font-weight:500;background:rgba(255,255,255,.92);color:#15202b;padding:0 4px;border-radius:3px;white-space:nowrap;border:1px solid #d2d9e1}
+.pin.rk i{width:26px;height:26px;border-radius:4px;background:#15202b;border-color:#15202b}
+.pin.rk i::after{left:5px;right:5px;top:5px;height:auto;bottom:5px;border:0;background:repeating-linear-gradient(#fff 0 2px,transparent 2px 5px)}
+.pin.sel i{outline:3px solid #f0a020;outline-offset:2px}
+.pin.dim{opacity:.3}
+.pin.hit i{outline:3px solid #17784a;outline-offset:2px}
+.pin.dragging{z-index:10;cursor:grabbing}
+.pin.dragging i{transform:scale(1.15)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:-8px 2px 14px}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;border:2px solid var(--accent);display:inline-block}
+.legend i.f{background:var(--accent)}
+.legend i.r{background:var(--ink);border-color:var(--ink)}
+
+.trace{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:16px;display:flex;flex-direction:column;gap:0}
+.trace .hop{display:grid;grid-template-columns:14px 1fr;gap:10px;align-items:start;position:relative;padding:4px 0}
+.trace .hop::before{content:"";width:10px;height:10px;border-radius:50%;border:2px solid var(--accent);background:var(--panel);margin-top:4px;z-index:1}
+.trace .hop.last::before{background:var(--accent)}
+.trace .hop:not(:last-child)::after{content:"";position:absolute;left:5px;top:18px;bottom:-6px;width:2px;background:var(--line)}
+.trace .hop b{display:block;font-size:13px}
+.trace .hop small{color:var(--muted);font-size:11px;font-family:var(--f-mono)}
+.trace .gap{color:var(--muted);font-size:12px}
+.port.jk::before{content:"";position:absolute;left:50%;top:-6px;width:4px;height:4px;margin-left:-2px;border-radius:1px;background:var(--accent)}
+.linkbtn{border:0;background:none;color:var(--accent);padding:0;font-weight:500;font-size:12px;text-decoration:underline;text-underline-offset:2px}
+</style>
+
+<div class="app">
+  <aside class="pane left">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="2" y="1.5" width="18" height="19" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="5" y="5" width="12" height="3" fill="currentColor"/><rect x="5" y="9.5" width="12" height="3" fill="currentColor" opacity=".55"/><rect x="5" y="14" width="12" height="3" fill="currentColor" opacity=".3"/></svg>
+      <b>RackGrid</b>
+    </div>
+    <div class="sitepick" id="sitePick"></div>
+    <div class="sec">
+      <h3>Racks at this site <button class="btn" id="newRack" style="padding:2px 8px;font-size:12px">+ New</button></h3>
+      <div class="racklist" id="rackList"></div>
+    </div>
+    <div class="sec">
+      <h3>Device library</h3>
+      <p class="hint">Drag onto a rack unit, or click to add at the first free slot. Drag any device in the rack to move it. On a phone, press and hold first.</p>
+      <div class="lib" id="lib"></div>
+    </div>
+    <div class="sec">
+      <h3>Import &amp; export</h3>
+      <div class="btnrow">
+        <button class="btn" id="importBtn">Import…</button>
+        <button class="btn" id="exportJson">Backup (.json)</button>
+        <button class="btn" id="exportCsv">Cables &amp; IPs (.csv)</button>
+      </div>
+      <p class="hint" id="storeNote" style="margin-top:10px"></p>
+    </div>
+  </aside>
+
+  <main class="center">
+    <div class="bar">
+      <div class="crumb"><h1 id="rackTitle">Loading…</h1><p id="rackSub"></p></div>
+      <div class="tabs" role="tablist">
+        <button data-view="site">Site</button>
+        <button data-view="rack">Rack</button>
+        <button data-view="table">Cables &amp; IPs</button>
+      </div>
+      <label class="toggle" id="cableToggle"><input type="checkbox" id="showCables" checked> Cables</label>
+      <div class="search"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9.5 9.5 13 13" stroke="currentColor" stroke-width="1.5"/></svg><input id="q" placeholder="Find IP, device, wall port, cable…" autocomplete="off"></div>
+    </div>
+    <div class="stage" id="stage"></div>
+  </main>
+
+  <aside class="pane right"><div class="insp" id="insp"></div></aside>
+</div>
+<div id="modalRoot"></div>
+
+<script>
+(() => {
+const UH = 34;
+const COLORS = {blue:"#2f6fe0",yellow:"#e0b21a",green:"#2f9e55",red:"#d6403a",orange:"#e5772b",purple:"#8a4fd6",white:"#c9d0d8",black:"#3a4450",grey:"#8b95a1",aqua:"#1fb5c9",pink:"#e05aa6"};
+const TYPES = {
+  patch:  {label:"Patch Panel 24-port", h:1, ports:[["rj45",24]], code:"PP"},
+  patch48:{label:"Patch Panel 48-port", h:1, ports:[["rj45",48]], code:"PP"},
+  fiber:  {label:"Fiber Patch Panel", h:1, ports:[["lc",24]], code:"FPP"},
+  switch: {label:"Switch 24-port", h:1, ports:[["rj45",24],["sfp",4]], code:"SW"},
+  switch48:{label:"Switch 48-port", h:1, ports:[["rj45",48],["sfp",4]], code:"SW"},
+  router: {label:"Router", h:1, ports:[["rj45",4],["sfp",2]], code:"RT"},
+  firewall:{label:"Firewall", h:1, ports:[["rj45",8],["sfp",2]], code:"FW"},
+  server: {label:"Server", h:2, ports:[["rj45",4],["rj45",1]], code:"SRV"},
+  nas:    {label:"Storage / NAS", h:2, ports:[["rj45",4]], code:"NAS"},
+  ups:    {label:"UPS", h:2, ports:[["rj45",1]], code:"UPS"},
+  battery:{label:"UPS Battery Pack", h:2, ports:[], code:"BAT"},
+  pdu:    {label:"PDU", h:1, ports:[], code:"PDU"},
+  manager:{label:"Cable Manager", h:1, ports:[], code:"CM"},
+  shelf:  {label:"Shelf / Tray", h:1, ports:[], code:"SH"},
+  blank:  {label:"Blank Panel", h:1, ports:[], code:"BL"},
+  custom: {label:"Custom Device…", h:1, ports:[["rj45",8]], code:"DEV"},
+};
+const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
+const clone = o => JSON.parse(JSON.stringify(o));
+const pad2 = n => String(n).padStart(2,"0");
+
+/* ---------- state ---------- */
+const S = {racks:{}, sites:{}, plans:{}};
+let curSite=null, curId=null, curFloor=null, view="site";
+let sel={dev:null,port:null,slot:null,pin:null};
+let q="", showCables=true, loaded=false, readOnly=false, armed=null, menuOpen=false, placeMode=null, zoom=1;
+
+const site = () => S.sites[curSite] || null;
+const rack = () => S.racks[curId] || null;
+const sortBy = (obj,f) => Object.keys(obj).sort((a,b)=>(obj[a][f]||"").localeCompare(obj[b][f]||"",undefined,{numeric:true}));
+function rackSite(r){ return S.sites[r.siteId] ? r.siteId : null; }
+function siteRacks(){ return sortBy(S.racks,"name").map(id=>S.racks[id]).filter(r=>rackSite(r)===curSite || rackSite(r)===null); }
+function floor(){ const s=site(); if(!s) return null; return s.floors.find(f=>f.id===curFloor) || s.floors[0] || null; }
+function devById(r,id){ return r?.devices.find(d => d.id === id); }
+function makePorts(spec){ const out=[]; let n=1; for(const [kind,count] of spec) for(let i=0;i<count;i++) out.push({n:n++,kind,label:"",ip:"",vlan:"",mac:"",link:null,ext:"",cable:"",color:"",len:"",note:""}); return out; }
+function nextName(r,type){ const code=TYPES[type]?.code||"DEV"; let i=1; const names=new Set(r.devices.map(d=>d.name)); while(names.has(code+pad2(i))) i++; return code+pad2(i); }
+function fits(r,u,h,ignore){ if(u<1||u+h-1>r.units) return false; return !r.devices.some(d => d.id!==ignore && u <= d.u+d.h-1 && d.u <= u+h-1); }
+function firstFree(r,h){ for(let top=r.units; top>=h; top--){ const u=top-h+1; if(fits(r,u,h)) return u; } return null; }
+function newDevice(r,type,u){ const t=TYPES[type]; return {id:uid(),name:nextName(r,type),type,u,h:t.h,model:"",serial:"",ip:"",notes:"",ports:makePorts(t.ports)}; }
+const today = () => new Date().toISOString().slice(0,10);
+function battDue(d){ return (d.type==="ups"||d.type==="battery") && d.replaceBy && d.replaceBy<=today(); }
+function setPortCounts(r,d,want){
+  const keep={rj45:[],sfp:[],lc:[]}; d.ports.forEach((pt,i)=>keep[pt.kind]?.push(i));
+  for(const k in keep) keep[k].slice(want[k]).forEach(i=>unlinkPort(r,d,i));
+  const old=d.ports, map={}, np=[]; let n=1;
+  for(const k of ["rj45","sfp","lc"]) for(let i=0;i<Math.min(200,want[k]||0);i++){ const oi=keep[k][i]; const pt=oi!=null?{...old[oi]}:makePorts([[k,1]])[0]; pt.n=n++; if(oi!=null) map[oi]=np.length; np.push(pt); }
+  for(const o of r.devices) o.ports.forEach(op=>{ if(op.link&&op.link.d===d.id&&o.id!==d.id) op.link.p=map[op.link.p]; });
+  np.forEach(pt=>{ if(pt.link&&pt.link.d===d.id) pt.link.p=map[pt.link.p]; });
+  for(const x of pinsAll()) if(x.p.link?.r===r.id && x.p.link.d===d.id && x.p.link.p!=null){ const m=map[x.p.link.p]; x.p.link.p = m==null?null:m; persist("sites",x.s.id); }
+  d.ports=np;
+}
+function portName(d,p){ const pt=d.ports[p]; if(!pt) return d.name+" · ?"; return `${d.name} · ${pt.kind==="sfp"?"SFP ":""}${pt.n}${pt.label?` (${pt.label})`:""}`; }
+
+function unlinkPort(r,d,p){ const pt=d.ports[p]; if(pt.link){ const o=devById(r,pt.link.d); if(o&&o.ports[pt.link.p]){ const op=o.ports[pt.link.p]; if(op.link&&op.link.d===d.id&&op.link.p===p) op.link=null; } pt.link=null; } }
+function linkPorts(r,a,pa,b,pb){ unlinkPort(r,a,pa); unlinkPort(r,b,pb); a.ports[pa].ext=""; b.ports[pb].ext="";
+  a.ports[pa].link={d:b.id,p:pb}; b.ports[pb].link={d:a.id,p:pa};
+  const A=a.ports[pa],B=b.ports[pb]; for(const k of ["cable","color","len"]){ const v=A[k]||B[k]; A[k]=v; B[k]=v; } }
+function syncCable(r,d,p){ const pt=d.ports[p]; if(!pt.link) return; const o=devById(r,pt.link.d); if(!o) return; const op=o.ports[pt.link.p]; for(const k of ["cable","color","len"]) op[k]=pt[k]; }
+
+/* wall ports */
+function pinsAll(){ const out=[]; for(const s of Object.values(S.sites)) for(const p of (s.pins||[])) out.push({s,p}); return out; }
+function jackMap(){ const m={}; for(const {s,p} of pinsAll()) if(p.kind==="jack"&&p.link&&p.link.p!=null) m[`${p.link.r}:${p.link.d}:${p.link.p}`]={s,p}; return m; }
+function floorName(s,fid){ return s.floors.find(f=>f.id===fid)?.name || "—"; }
+function trace(p){
+  if(!p.link||p.link.p==null) return null;
+  const r=S.racks[p.link.r], d=devById(r,p.link.d); if(!r||!d||!d.ports[p.link.p]) return null;
+  const pt=d.ports[p.link.p]; const t={r,d,pi:p.link.p,pt};
+  if(pt.link){ const o=devById(r,pt.link.d); if(o&&o.ports[pt.link.p]) Object.assign(t,{o,oi:pt.link.p,op:o.ports[pt.link.p]}); }
+  return t;
+}
+
+function siteIps(){ const map={}; const add=(ip,x)=>{ ip=(ip||"").trim(); if(ip) (map[ip] ||= []).push(x); };
+  for(const r of siteRacks()) for(const d of r.devices){ add(d.ip,1); d.ports.forEach(pt=>add(pt.ip,1)); }
+  for(const p of (site()?.pins||[])) add(p.eip,1);
+  return map; }
+function dupSet(){ const m=siteIps(), s=new Set(); for(const k in m) if(m[k].length>1) s.add(k); return s; }
+
+/* ---------- persistence ---------- */
+let db=null, cols={}, mode="loading", assetsNs;
+const dirty=new Set(), inflight=new Set(), again=new Set(), timers={};
+const LSKEY={racks:"rackbook-v1",sites:"rackbook-sites",plans:"rackbook-plans"};
+function persist(c,id){ if(readOnly) return; const key=c+"/"+id; dirty.add(key);
+  if(mode==="local"){ try{ localStorage.setItem(LSKEY[c], JSON.stringify(S[c])); }catch(e){ toast("This browser's storage is full. Export a backup."); } dirty.delete(key); return; }
+  clearTimeout(timers[key]); timers[key]=setTimeout(()=>flush(c,id),500); }
+async function flush(c,id){
+  const key=c+"/"+id; if(!cols[c]) return;
+  if(inflight.has(key)){ again.add(key); return; }
+  inflight.add(key);
+  try{ if(S[c][id]) await cols[c].doc(id).set(S[c][id]); else await cols[c].doc(id).delete(); }
+  catch(e){
+    if(e?.code==="invalid_argument" && S[c][id]){ if(c==="plans") toast("That floor plan is too large to save here. Try a smaller image."); else { readOnly=true; toast("You can view this site but don't have permission to edit it."); render(); } }
+    else if(e?.code==="quota_exceeded") toast("Storage is full. Delete something you no longer need and try again.");
+    else if(e?.code==="unavailable"){ setTimeout(()=>{ inflight.delete(key); flush(c,id); },800+Math.random()*800); return; }
+    else toast("Couldn't save the last change. Check your connection.");
+  }
+  inflight.delete(key);
+  if(again.has(key)){ again.delete(key); flush(c,id); } else dirty.delete(key);
+}
+const saveRack = () => { if(curId) persist("racks",curId); render(); };
+const saveSite = () => { if(curSite) persist("sites",curSite); render(); };
+
+async function boot(){
+  try{ db = window.claude?.use ? await window.claude.use("db") : null; }catch(e){ db=null; }
+  if(!db){ mode="local"; for(const c of ["racks","sites","plans"]){ try{ S[c]=JSON.parse(localStorage.getItem(LSKEY[c])||"{}")||{}; }catch(e){ S[c]={}; } }
+    loaded=true; pickDefaults(); render(); return; }
+  mode="db"; for(const c of ["racks","sites","plans"]) cols[c]=db.collection(c);
+  const ready={racks:false,sites:false};
+  const t=setTimeout(()=>{ if(!loaded){ $("#rackTitle").textContent="Can't reach your saved sites yet"; $("#rackSub").textContent="Still trying. Check your connection."; } },10000);
+  for(const c of ["racks","sites"]){
+    cols[c].onSnapshot(snap=>{
+      const seen=new Set();
+      for(const doc of snap.docs){ seen.add(doc.id); if(!dirty.has(c+"/"+doc.id)) S[c][doc.id]=clone(doc.data()); }
+      for(const id of Object.keys(S[c])) if(!seen.has(id) && !dirty.has(c+"/"+id)) delete S[c][id];
+      if(!snap.metadata.fromCache || snap.size) ready[c]=true;
+      if(ready.racks&&ready.sites){ clearTimeout(t); loaded=true; }
+      pickDefaults(); if(!pd) render();
+    }, ()=>{ clearTimeout(t); loaded=true; toast("Lost connection to your saved data. Reload to reconnect."); render(); });
+  }
+}
+/* ---------- image storage for floor plans ---------- */
+// Inside Claude: uploaded assets. Standalone (e.g. GitHub Pages): IndexedDB in this browser.
+const IN_CLAUDE = !!window.claude?.use;
+const idb = { p:null,
+  open(){ return this.p ||= new Promise((res,rej)=>{ const r=indexedDB.open("rackgrid",1); r.onupgradeneeded=()=>r.result.createObjectStore("plans"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); },
+  async run(mode,fn){ const d=await this.open(); return new Promise((res,rej)=>{ const tx=d.transaction("plans",mode); const q=fn(tx.objectStore("plans")); tx.oncomplete=()=>res(q?.result); tx.onerror=()=>rej(tx.error); }); },
+  get(k){ return this.run("readonly",st=>st.get(k)); }, put(k,v){ return this.run("readwrite",st=>st.put(v,k)); }, del(k){ return this.run("readwrite",st=>st.delete(k)); } };
+const localUrls={};
+async function storePlanImage(s,f,blob,type,w,h){
+  const assets=await getAssets();
+  if(assets){ const res=await assets.upload(blob,{type}); return {asset:res.id,w,h}; }
+  if(mode==="local" && window.indexedDB){ try{ const key="plan_"+uid(); await idb.put(key,blob); localUrls[key]=URL.createObjectURL(blob); return {local:key,w,h}; }catch(e){} }
+  const img=await loadImg(URL.createObjectURL(blob)); let max=1800, qual=.8, data="";
+  for(let i=0;i<8;i++){ const c=drawTo(img,max); data=c.toDataURL("image/jpeg",qual); if(data.length<235000) break; if(qual>.5) qual-=.12; else max=Math.round(max*.8); }
+  const key=s.id+"_"+f.id+"_"+uid().slice(0,4); S.plans[key]={data}; persist("plans",key); return {inline:key,w,h};
+}
+function dropPlanStorage(pl){
+  if(!pl) return;
+  if(pl.asset) getAssets().then(a=>a?.delete(pl.asset).catch(()=>{}));
+  if(pl.inline){ delete S.plans[pl.inline]; persist("plans",pl.inline); }
+  if(pl.local){ idb.del(pl.local).catch(()=>{}); if(localUrls[pl.local]) URL.revokeObjectURL(localUrls[pl.local]); delete localUrls[pl.local]; }
+}
+async function planBlob(pl){
+  if(pl.asset){ const r=await fetch("/_blob/"+pl.asset); if(!r.ok) throw 0; return await r.blob(); }
+  if(pl.local){ const b=await idb.get(pl.local); if(!b) throw 0; return b; }
+  if(pl.inline){ let d=S.plans[pl.inline]?.data; if(!d && mode==="db"){ const sn=await cols.plans.doc(pl.inline).get(); d=sn.data()?.data; } if(!d) throw 0; return await (await fetch(d)).blob(); }
+  throw 0;
+}
+const blobToDataURL = b => new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(b); });
+function planSrc(s,f){
+  if(!f?.plan) return null;
+  if(f.plan.asset) return "/_blob/"+f.plan.asset;
+  if(f.plan.local){ const k=f.plan.local; if(localUrls[k]) return localUrls[k];
+    if(!(k in localUrls)){ localUrls[k]=""; idb.get(k).then(b=>{ if(b){ localUrls[k]=URL.createObjectURL(b); render(); } }).catch(()=>{}); } return null; }
+  if(f.plan.inline){ const k=f.plan.inline; if(S.plans[k]?.data) return S.plans[k].data;
+    if(mode==="db" && !S.plans[k]){ S.plans[k]={loading:true}; cols.plans.doc(k).get().then(sn=>{ S.plans[k]=sn.exists?clone(sn.data()):{data:""}; render(); }).catch(()=>{ delete S.plans[k]; }); }
+  }
+  return null;
+}
+function pickDefaults(){
+  if(!S.sites[curSite]) curSite = sortBy(S.sites,"name")[0] || null;
+  const list=siteRacks(); if(!S.racks[curId] || !list.includes(S.racks[curId])){ curId=list[0]?.id||null; if(sel.dev) sel={dev:null,port:null,slot:null,pin:sel.pin}; }
+  const s=site(); if(s && !s.floors.some(f=>f.id===curFloor)) curFloor=s.floors[0]?.id||null;
+  if(s && sel.pin && !(s.pins||[]).some(p=>p.id===sel.pin)) sel.pin=null;
+}
+
+/* ---------- render ---------- */
+function render(){
+  renderSide(); renderBar();
+  if(view==="site") renderSite(); else if(view==="rack") renderRack(); else renderTable();
+  renderInsp();
+  $("#storeNote").textContent = mode==="db" ? "Changes save automatically to this page." : mode==="local" ? "Saved in this browser only. Export a backup to keep a copy." : "";
+}
+function renderSide(){
+  const s=site(), ids=sortBy(S.sites,"name");
+  const firstLine = a => (a||"").split("\n").filter(Boolean).join(", ");
+  $("#sitePick").innerHTML = `<button class="sitebtn" id="siteBtn" aria-haspopup="true" aria-expanded="${menuOpen}">
+     <svg class="pin-ico" width="16" height="18" viewBox="0 0 16 18" aria-hidden="true"><path d="M8 17s6-5.6 6-10A6 6 0 0 0 2 7c0 4.4 6 10 6 10z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8" cy="7" r="2.2" fill="currentColor"/></svg>
+     <span><b>${s?esc(s.name):loaded?"No site yet":"Loading…"}</b><small>${s?esc(firstLine(s.address)||"No address yet"):"Choose or add a site"}</small></span>
+     <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
+   ${menuOpen?`<div class="sitemenu" role="menu">${ids.map(id=>`<button role="menuitem" data-site="${id}" class="${id===curSite?"on":""}"><b>${esc(S.sites[id].name)}</b><small>${esc(firstLine(S.sites[id].address)||"No address")}</small></button>`).join("")}${ids.length?"<hr>":""}<button class="add" data-act="newsite" ${readOnly?"disabled":""}>+ Add a site</button></div>`:""}`;
+  const list=siteRacks();
+  $("#rackList").innerHTML = list.length ? list.map(r=>{ const used=r.devices.reduce((a,d)=>a+d.h,0);
+    return `<button data-rack="${r.id}" class="${r.id===curId&&view!=="site"?"on":""}"><span>${esc(r.name)}${rackSite(r)?"":" <small>· unassigned</small>"}</span><small>${used}/${r.units}U</small></button>`; }).join("")
+    : `<p class="hint">${loaded?(s?"No racks at this site yet.":"Add a site first."):"Loading…"}</p>`;
+  if(!$("#lib").childElementCount){
+    $("#lib").innerHTML = Object.entries(TYPES).map(([k,t])=>{ const n=t.ports.reduce((a,p)=>a+p[1],0); const bars=Math.min(6,Math.max(1,Math.ceil(n/8)));
+      return `<button data-type="${k}"><span class="glyph">${n?Array.from({length:bars},()=>"<i></i>").join(""):""}</span>${t.label}<small>${t.h}U</small></button>`; }).join("");
+  }
+}
+function renderBar(){
+  document.querySelectorAll("[data-view]").forEach(b=>b.classList.toggle("on",b.dataset.view===view));
+  $("#cableToggle").hidden = view!=="rack";
+  const s=site(), r=rack();
+  if(view==="site"){ $("#rackTitle").textContent = s ? s.name : loaded ? "No site yet" : "Loading…";
+    $("#rackSub").textContent = s ? `${s.floors.length} floor${s.floors.length===1?"":"s"} · ${(s.pins||[]).filter(p=>p.kind==="jack").length} wall ports · ${siteRacks().length} rack${siteRacks().length===1?"":"s"}` : ""; return; }
+  if(!r){ $("#rackTitle").textContent = loaded ? "No rack selected" : "Loading…"; $("#rackSub").textContent=s?s.name:""; return; }
+  $("#rackTitle").textContent=r.name;
+  const used=r.devices.reduce((a,d)=>a+d.h,0);
+  $("#rackSub").textContent=`${s?s.name+" · ":""}${r.location?r.location+" · ":""}${r.units}U · ${used}U used · ${r.devices.length} devices`;
+}
+
+/* site view */
+function matchPin(p){ if(!q) return false; const s=q.toLowerCase(); const t=trace(p);
+  return [p.label,p.room,p.endpoint,p.eip,p.mac,p.note,t?.d?.name,t?.o?.name].some(v=>(v||"").toLowerCase().includes(s)); }
+function renderSite(){
+  const s=site(), st=$("#stage");
+  if(!s){ st.innerHTML = loaded ? `<div class="emptyrack"><h2>Add your first site</h2><p>A site is a building or office. Give it an address, upload a floor plan, then place wall ports and racks on it.</p><div class="btnrow"><button class="btn primary" data-act="newsite">Add a site</button><button class="btn" data-act="import">Import…</button>${mode==="local"?`<button class="btn" data-act="sample">Try with sample data</button>`:""}</div></div>` : `<div class="emptyrack"><p>Loading your sites…</p></div>`; return; }
+  const f=floor(), onFloor=(s.pins||[]).filter(p=>p.floor===f?.id), inView=p=>p.x>=0&&p.x<=1&&p.y>=0&&p.y<=1, pins=onFloor.filter(inView), hiddenN=onFloor.length-pins.length;
+  const jacks=(s.pins||[]).filter(p=>p.kind==="jack"), patched=jacks.filter(p=>trace(p)).length;
+  const src=planSrc(s,f), pg=planGeom(f?.plan), w=pg.DW, h=pg.DH;
+  const addr=(s.address||"").trim();
+  st.innerHTML=`<div style="max-width:1200px;margin:0 auto">
+   <div class="sitehead"><div style="min-width:0;flex:1 1 280px"><h2>${esc(s.name)}</h2>
+     <address>${addr?esc(addr):"<span style='font-style:italic'>No address yet. Add one in the panel on the right.</span>"}</address>
+     ${addr?`<div class="btnrow"><button class="btn" data-act="copyaddr">Copy address</button><a class="btn" style="text-decoration:none" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr.replace(/\n/g,", "))}">Open in Maps ↗</a></div>`:""}</div>
+     <div class="kpis"><div class="kpi"><b>${siteRacks().length}</b><span>Racks</span></div><div class="kpi"><b>${jacks.length}</b><span>Wall ports</span></div><div class="kpi"><b>${patched}</b><span>Patched</span></div></div></div>
+   <div class="floorbar"><div class="chips">${s.floors.map(fl=>`<button class="chipbtn${fl.id===f?.id?" on":""}" data-floor="${fl.id}">${esc(fl.name)}</button>`).join("")}<button class="chipbtn" data-act="addfloor" ${readOnly?"disabled":""}>+ Floor</button></div>
+     ${f?`<div class="tools">
+       <label class="btn filebtn" ${readOnly?"style='opacity:.5;pointer-events:none'":""}>${f.plan?"Replace floor plan":"Upload floor plan"}<input type="file" id="planFile" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,application/pdf,.pdf"></label>
+       ${f.plan?`<button class="btn" data-act="editplan" ${readOnly?"disabled":""}>Rotate / crop</button>`:""}
+       <button class="btn${placeMode==="jack"?" on":""}" data-act="placejack" ${readOnly?"disabled":""}>${placeMode==="jack"?"Placing wall ports… (Esc)":"+ Wall port"}</button>
+       <button class="btn${placeMode==="rack"?" on":""}" data-act="placerack" ${readOnly?"disabled":""}>${placeMode==="rack"?"Click to mark rack…":"+ Rack location"}</button>
+       <span class="zoom"><button data-act="zout" aria-label="Zoom out">−</button><button data-act="zfit">${Math.round(zoom*100)}%</button><button data-act="zin" aria-label="Zoom in">+</button></span></div>`:""}</div>
+   ${f?`<div class="planscroll" id="planScroll"><div class="plan${placeMode?" placing":""}" id="plan" style="width:${zoom*100}%;aspect-ratio:${w}/${h}">
+      ${src?`<div class="planimg"><img src="${esc(src)}" alt="Floor plan of ${esc(f.name)}" draggable="false" style="${imgStyle(f.plan)}"></div>`:f.plan?`<div class="noplan"><b>Loading floor plan…</b></div>`:`<div class="noplan"><b>No floor plan yet</b><span>Upload a PNG, JPG, SVG or PDF of ${esc(f.name)}. You can still place wall ports on this grid.</span></div>`}
+      ${pins.map(p=>{ const t=p.kind==="jack"?trace(p):null; const cls=["pin",p.kind==="rack"?"rk":"",t?"on":"",sel.pin===p.id?"sel":""]; if(q){ if(matchPin(p)) cls.push("hit"); else cls.push("dim"); }
+        const lbl=p.kind==="rack"?(S.racks[p.rack]?.name||p.label||"Rack"):(p.label||"?");
+        const tip=p.kind==="rack"?`Rack ${lbl}`:`Wall port ${lbl}${t?` → ${portName(t.d,t.pi)}${t.o?` → ${portName(t.o,t.oi)}`:""}`:" · not patched"}${p.endpoint?` · ${p.endpoint}`:""}`;
+        return `<button class="${cls.join(" ")}" data-pin="${p.id}" style="left:${p.x*100}%;top:${p.y*100}%" title="${esc(tip)}" aria-label="${esc(tip)}"><i></i><span>${esc(lbl)}</span></button>`; }).join("")}
+   </div></div>
+   <div class="legend"><span><i class="f"></i>Wall port patched to a rack</span><span><i></i>Wall port not patched</span><span><i class="r"></i>Rack location</span><span>Drag markers to move them.</span>${hiddenN?`<span style="color:var(--warn)">${hiddenN} marker${hiddenN===1?" is":"s are"} outside the cropped area. Use Rotate / crop to widen it.</span>`:""}</div>`:`<p class="hint">Add a floor to start.</p>`}
+   ${jackTable(s)}</div>`;
+}
+function jackTable(s){
+  const ql=q.toLowerCase();
+  const rows=(s.pins||[]).filter(p=>p.kind==="jack").filter(p=>!q||matchPin(p)).sort((a,b)=>(a.label||"").localeCompare(b.label||"",undefined,{numeric:true}));
+  const dups=dupSet();
+  return `<div class="tblhead"><h2>Wall ports</h2><span class="chip">${rows.length} ${q?"matching":"total"}</span></div>
+   <div class="tbl"><table><thead><tr><th>Wall port</th><th>Floor</th><th>Room</th><th>Patch panel</th><th>Switch port</th><th>VLAN</th><th>Connected device</th><th>Device IP</th></tr></thead><tbody>
+   ${rows.length?rows.map(p=>{ const t=trace(p); return `<tr class="click" data-pinrow="${p.id}"><td class="mono"><b>${esc(p.label)}</b></td><td>${esc(floorName(s,p.floor))}</td><td>${esc(p.room)}</td>
+     <td>${t?esc(portName(t.d,t.pi)):"<span style='color:var(--muted)'>Not patched</span>"}</td><td>${t?.o?esc(portName(t.o,t.oi)):""}</td><td class="mono">${esc(t?.op?.vlan||t?.pt?.vlan||"")}</td>
+     <td>${esc(p.endpoint)}</td><td class="mono">${esc(p.eip)}${p.eip&&dups.has(p.eip.trim())?' <span class="chip warn">Duplicate</span>':""}</td></tr>`; }).join("")
+     :`<tr><td colspan="8" style="color:var(--muted)">${q?"No wall ports match your search.":"No wall ports yet. Click + Wall port, then click the floor plan where each jack is."}</td></tr>`}
+   </tbody></table></div>`;
+}
+
+/* rack view */
+function matchDev(d){ if(!q) return false; const s=q.toLowerCase(); return [d.name,d.model,d.serial,d.ip,TYPES[d.type]?.label,d.notes].some(v=>(v||"").toLowerCase().includes(s)); }
+function matchPort(pt,jk){ if(!q) return false; const s=q.toLowerCase(); return [pt.label,pt.ip,pt.cable,pt.ext,pt.mac,pt.vlan,pt.note,jk?.p.label,jk?.p.endpoint,jk?.p.eip].some(v=>(v||"").toLowerCase().includes(s)); }
+function portHTML(r,d,i,dups,jm){
+  const pt=d.ports[i]; if(!pt) return "";
+  const jk=jm[`${r.id}:${d.id}:${i}`];
+  const cls=["port",pt.kind]; if(pt.link) cls.push("on"); else if(pt.ext) cls.push("on","ext"); if(jk) cls.push("jk");
+  if(sel.dev===d.id && sel.port===i) cls.push("sel");
+  if(sel.port!=null){ const sp=devById(r,sel.dev)?.ports[sel.port]; if(sp?.link && sp.link.d===d.id && sp.link.p===i) cls.push("peer"); }
+  if(matchPort(pt,jk)) cls.push("hit");
+  const tip=`${pt.kind.toUpperCase()} ${pt.n}${pt.label?" · "+pt.label:""}${pt.ip?" · "+pt.ip:""}${pt.cable?" · cable "+pt.cable:""}${jk?" · wall port "+jk.p.label:""}`;
+  return `<button class="${cls.join(" ")}" data-d="${d.id}" data-p="${i}" title="${esc(tip)}" aria-label="${esc(tip)}">${pt.ip?`<i class="ipdot${dups.has(pt.ip.trim())?" dup":""}"></i>`:""}${pt.color&&(pt.link||pt.ext)?`<i class="cc" style="background:${COLORS[pt.color]||pt.color}"></i>`:""}</button>`;
+}
+function portsHTML(r,d,dups,jm){
+  const runs=[]; d.ports.forEach((pt,i)=>{ const last=runs[runs.length-1]; if(last&&last.kind===pt.kind) last.idx.push(i); else runs.push({kind:pt.kind,idx:[i]}); });
+  return runs.map(run=>{
+    const two=run.idx.length>12, per=two?((run.idx.length/2>24&&d.h>=2)?4:2):1, cols=[];
+    if(two){ for(let c=0;c<run.idx.length;c+=per){ const g=run.idx.slice(c,c+per); const last=g[g.length-1];
+        cols.push(`<span class="pcol"><em>${d.ports[g[0]].n}</em>${g.map(a=>portHTML(r,d,a,dups,jm)).join("")}<em>${g.length>1?d.ports[last].n:""}</em></span>`); } }
+    else for(const a of run.idx) cols.push(`<span class="pcol"><em>${d.ports[a].n}</em>${portHTML(r,d,a,dups,jm)}</span>`);
+    const g=two?6:8, out=[]; for(let i=0;i<cols.length;i+=g) out.push(`<span class="grp">${cols.slice(i,i+g).join("")}</span>`);
+    return out.join("");
+  }).join("");
+}
+function renderRack(){
+  const r=rack(), st=$("#stage");
+  if(!r){ st.innerHTML = loaded ? (site()?`<div class="emptyrack"><h2>No racks at ${esc(site().name)} yet</h2><p>Create a rack to match one in your server room, or import a backup or a device list.</p><div class="btnrow"><button class="btn primary" data-act="newrack">Create rack</button><button class="btn" data-act="import">Import…</button></div></div>`:`<div class="emptyrack"><h2>Add a site first</h2><p>Racks belong to a site.</p><div class="btnrow"><button class="btn primary" data-act="newsite">Add a site</button></div></div>`) : `<div class="emptyrack"><p>Loading your racks…</p></div>`; return; }
+  const dups=dupSet(), jm=jackMap(), H=r.units*UH;
+  let u="", slots="";
+  for(let n=1;n<=r.units;n++){ const top=(r.units-n)*UH; u+=`<span style="top:${top+UH/2}px">${n}</span>`;
+    slots+=`<div class="slot${sel.slot===n?" pick":""}" data-u="${n}" style="top:${top}px;height:${UH}px">+ add at U${n}</div>`; }
+  const devs=r.devices.map(d=>{
+    const top=(r.units-(d.u+d.h-1))*UH, cls=["dev","type-"+d.type];
+    if(sel.dev===d.id && sel.port==null) cls.push("sel");
+    if(q){ const hit=matchDev(d)||d.ports.some((pt,i)=>matchPort(pt,jm[`${r.id}:${d.id}:${i}`])); if(matchDev(d)) cls.push("hit"); if(!hit) cls.push("dim"); }
+    const t=TYPES[d.type]||{};
+    const face = d.ports.length ? `<div class="face"><span class="meta"><b>${esc(d.model||d.kind||t.label)}</b><small class="${battDue(d)?"due":""}">${battDue(d)?"Replace battery":esc(d.ip||"")}</small></span><span class="ports">${portsHTML(r,d,dups,jm)}</span></div>`
+      : d.type==="battery" ? `<div class="face batt"><span class="meta"><b>${esc(d.model||t.label)}</b><small class="${battDue(d)?"due":""}">${battDue(d)?"Replace battery":d.replaceBy?"Replace by "+esc(d.replaceBy):""}</small></span><span class="cells">${"<i></i>".repeat(Math.min(12,4*d.h))}</span></div>`
+      : `<div class="face ${d.type==="manager"?"mgr":"blank"}"><span class="meta"><b>${esc(d.model||t.label)}</b><small>${esc(d.ip||"")}</small></span></div>`;
+    return `<div class="${cls.join(" ")}" data-dev="${d.id}" style="top:${top+1}px;height:${d.h*UH-2}px"><span class="tag" title="Drag to move"><b>${esc(d.name)}</b></span>${face}${readOnly?"":`<span class="rz" title="Drag to resize" data-rz="${d.id}"></span>`}</div>`;
+  }).join("");
+  st.innerHTML=`<div class="rackwrap" id="rw"><div class="rack"><div class="ucol" style="height:${H}px">${u}</div><div class="body" id="rbody" style="height:${H}px">${slots}${devs}</div></div><svg class="cables" id="cables"></svg></div>`;
+  requestAnimationFrame(drawCables);
+}
+function drawCables(){
+  const svg=$("#cables"), rw=$("#rw"), r=rack(); if(!svg||!rw||!r) return;
+  if(!showCables){ svg.innerHTML=""; return; }
+  const box=rw.getBoundingClientRect(), body=$("#rbody").getBoundingClientRect();
+  const right=body.right-box.left+4; let lane=0, out="";
+  const seen=new Set(); const selPort = sel.port!=null ? `${sel.dev}:${sel.port}` : null;
+  for(const d of r.devices) d.ports.forEach((pt,i)=>{
+    if(!pt.link) return; const key=[`${d.id}:${i}`,`${pt.link.d}:${pt.link.p}`].sort().join("|"); if(seen.has(key)) return; seen.add(key);
+    const a=rw.querySelector(`.port[data-d="${d.id}"][data-p="${i}"]`), b=rw.querySelector(`.port[data-d="${pt.link.d}"][data-p="${pt.link.p}"]`);
+    if(!a||!b) return;
+    const ra=a.getBoundingClientRect(), rb=b.getBoundingClientRect();
+    const ax=ra.left-box.left+ra.width/2, ay=ra.bottom-box.top, bx=rb.left-box.left+rb.width/2, by=rb.bottom-box.top;
+    const lx=right+8+(lane++%14)*6;
+    const hot=(selPort && key.includes(selPort)) || (sel.dev && sel.port==null && (d.id===sel.dev||pt.link.d===sel.dev));
+    const any=selPort||sel.dev;
+    const c=COLORS[pt.color]||pt.color||"var(--accent)";
+    out+=`<path class="${hot?"hot":any?"cold":""}" stroke="${c}" d="M${ax} ${ay} v5 Q${ax} ${ay+9} ${ax+6} ${ay+9} H${lx-6} Q${lx} ${ay+9} ${lx} ${ay+15} V${by+3} Q${lx} ${by+9} ${lx-6} ${by+9} H${bx+6} Q${bx} ${by+9} ${bx} ${by+4} V${by}"/>`;
+  });
+  svg.setAttribute("width",box.width+120); svg.setAttribute("height",box.height); svg.innerHTML=out;
+}
+
+/* table view */
+function cableRows(r){
+  const rows=[], seen=new Set(), jm=jackMap();
+  for(const d of r.devices) d.ports.forEach((pt,i)=>{
+    if(pt.link){ const key=[`${d.id}:${i}`,`${pt.link.d}:${pt.link.p}`].sort().join("|"); if(!seen.has(key)){ seen.add(key);
+      const o=devById(r,pt.link.d); rows.push({a:portName(d,i),b:o?portName(o,pt.link.p):"?",cable:pt.cable,color:pt.color,len:pt.len,d:d.id,p:i}); } }
+    else if(pt.ext) rows.push({a:portName(d,i),b:pt.ext+" (outside rack)",cable:pt.cable,color:pt.color,len:pt.len,d:d.id,p:i});
+    const jk=jm[`${r.id}:${d.id}:${i}`]; if(jk) rows.push({a:portName(d,i),b:`Wall port ${jk.p.label} · ${floorName(jk.s,jk.p.floor)}${jk.p.room?" · "+jk.p.room:""}`,cable:jk.p.cable||"",color:"",len:"",d:d.id,p:i,pin:jk.p.id});
+  });
+  return rows;
+}
+function ipRows(r){
+  const out=[], dups=dupSet(), jm=jackMap();
+  for(const d of r.devices){ if(d.ip) out.push({ip:d.ip,what:`${d.name} (management)`,vlan:"",mac:"",d:d.id,p:null,dup:dups.has(d.ip.trim())});
+    d.ports.forEach((pt,i)=>{ if(pt.ip) out.push({ip:pt.ip,what:portName(d,i),vlan:pt.vlan,mac:pt.mac,d:d.id,p:i,dup:dups.has(pt.ip.trim())});
+      const jk=jm[`${r.id}:${d.id}:${i}`]; if(jk&&jk.p.eip){ const t=trace(jk.p); out.push({ip:jk.p.eip,what:`${jk.p.endpoint||"Device"} via wall port ${jk.p.label}`,vlan:t?.op?.vlan||pt.vlan,mac:jk.p.mac||"",pin:jk.p.id,dup:dups.has(jk.p.eip.trim())}); } }); }
+  const key=ip=>ip.split(/[./]/).map(x=>x.padStart(4,"0")).join(".");
+  return out.sort((a,b)=>key(a.ip).localeCompare(key(b.ip)));
+}
+function renderTable(){
+  const r=rack(), st=$("#stage");
+  if(!r){ renderRack(); return; }
+  const s=q.toLowerCase(), f=o=>!q||Object.values(o).some(v=>typeof v==="string"&&v.toLowerCase().includes(s));
+  const all=ipRows(r), cr=cableRows(r).filter(f), ir=all.filter(f), dupN=all.filter(x=>x.dup).length;
+  const rowAttrs=x=>x.pin?`data-pinrow="${x.pin}"`:`data-d="${x.d}" data-p="${x.p??""}"`;
+  st.innerHTML=`<div style="max-width:980px;margin:0 auto">
+   <div class="tblhead"><h2>Cables</h2><span class="chip">${cr.length} shown</span></div>
+   <div class="tbl"><table><thead><tr><th>From</th><th>To</th><th>Cable ID</th><th>Color</th><th>Length</th></tr></thead><tbody>
+   ${cr.length?cr.map(x=>`<tr class="click" ${x.pin?`data-pinrow="${x.pin}"`:`data-d="${x.d}" data-p="${x.p}"`}><td>${esc(x.a)}</td><td>${esc(x.b)}</td><td class="mono">${esc(x.cable)}</td><td>${x.color?`<span class="sw" style="background:${COLORS[x.color]||x.color}"></span> ${esc(x.color)}`:""}</td><td class="mono">${esc(x.len)}</td></tr>`).join(""):`<tr><td colspan="5" style="color:var(--muted)">No cables recorded yet. Click a port in the rack to connect it.</td></tr>`}
+   </tbody></table></div>
+   <div class="tblhead"><h2>IP addresses</h2>${dupN?`<span class="chip warn">${dupN} duplicate entries at this site</span>`:`<span class="chip ok">No duplicates</span>`}</div>
+   <div class="tbl"><table><thead><tr><th>IP</th><th>Assigned to</th><th>VLAN</th><th>MAC</th><th></th></tr></thead><tbody>
+   ${ir.length?ir.map(x=>`<tr class="click" ${rowAttrs(x)}><td class="mono">${esc(x.ip)}</td><td>${esc(x.what)}</td><td class="mono">${esc(x.vlan)}</td><td class="mono">${esc(x.mac)}</td><td>${x.dup?`<span class="chip warn">Duplicate</span>`:""}</td></tr>`).join(""):`<tr><td colspan="5" style="color:var(--muted)">No IP addresses yet. Add one to a device, a port or a wall port.</td></tr>`}
+   </tbody></table></div></div>`;
+}
+
+/* ---------- inspector ---------- */
+function fld(label,key,val,opt={}){ const id="f_"+key; const dis=readOnly?"disabled":"";
+  if(opt.select) return `<label class="${opt.full?"full":""}">${label}<select id="${id}" data-k="${key}" ${dis}>${opt.select.map(([v,t])=>`<option value="${esc(v)}"${String(v)===String(val??"")?" selected":""}>${esc(t)}</option>`).join("")}</select></label>`;
+  if(opt.area) return `<label class="full">${label}<textarea id="${id}" data-k="${key}" rows="${opt.rows||2}" placeholder="${esc(opt.ph||"")}" ${dis}>${esc(val)}</textarea></label>`;
+  return `<label class="${opt.full?"full":""}">${label}<input id="${id}" data-k="${key}" value="${esc(val)}" class="${opt.mono?"mono":""}${opt.bad?" bad":""}" ${opt.type?`type="${opt.type}"`:""} placeholder="${esc(opt.ph||"")}" ${dis}></label>`;
+}
+function delBtn(key,label){ return `<button class="btn danger${armed===key?" arm":""}" data-del="${key}" ${readOnly?"disabled":""}>${armed===key?"Click again to confirm":label}</button>`; }
+const roNote = () => readOnly?`<div class="notice">View only. You don't have permission to edit this site.</div>`:"";
+function renderInsp(){
+  const el=$("#insp");
+  if(view==="site") return renderSiteSideInsp(el);
+  const r=rack();
+  if(!r){ el.innerHTML=`<div class="empty">Select or create a rack to see its details here.</div>`; return; }
+  const d=devById(r,sel.dev);
+  if(d && sel.port!=null && d.ports[sel.port]) return renderPortInsp(r,d,sel.port);
+  if(d) return renderDevInsp(r,d);
+  if(sel.slot){ el.innerHTML=`${roNote()}<h2>Empty slot U${sel.slot}</h2><p class="sub">Choose a device to install here</p><div class="lib">${Object.entries(TYPES).map(([k,t])=>`<button data-addat="${k}"${fits(r,sel.slot,t.h)?"":" disabled style='opacity:.4;cursor:not-allowed'"}>${t.label}<small>${t.h}U</small></button>`).join("")}</div>`; return; }
+  const used=r.devices.reduce((a,x)=>a+x.h,0), links=cableRows(r).filter(x=>!x.pin).length, ips=ipRows(r).length, dups=dupSet().size;
+  el.innerHTML=`${roNote()}<h2>${esc(r.name)}</h2><p class="sub">Rack overview</p>
+   <div class="stats"><div class="stat"><b>${used}/${r.units}</b><span>Units used</span></div><div class="stat"><b>${r.devices.length}</b><span>Devices</span></div><div class="stat"><b>${links}</b><span>Cables</span></div><div class="stat"><b>${ips}</b><span>IP addresses</span></div></div>
+   ${r.devices.filter(battDue).length?`<div class="notice">Battery replacement is due on: ${r.devices.filter(battDue).map(x=>esc(x.name)).join(", ")}.</div>`:""}
+   ${dups?`<div class="notice">${dups} IP address${dups>1?"es are":" is"} assigned more than once at this site. Open Cables &amp; IPs to see where.</div>`:""}
+   <div class="fields" data-scope="rack">${fld("Rack name","name",r.name,{full:true})}
+   ${fld("Site","siteId",rackSite(r)||"",{full:true,select:[["","Not assigned"],...sortBy(S.sites,"name").map(id=>[id,S.sites[id].name])]})}
+   ${fld("Room / location","location",r.location||"",{full:true,ph:"e.g. Server room, 2nd floor"})}${fld("Height (U)","units",r.units,{type:"number"})}${fld("Notes","notes",r.notes||"",{area:true})}</div>
+   <p class="hint">Click a device or port to inspect it. Drag a device to move it, or select it and use the ↑ ↓ keys. Click an empty unit to install a device there.</p>
+   <div class="btnrow">${delBtn("rack","Delete rack")}</div>`;
+}
+function renderDevInsp(r,d){
+  const t=TYPES[d.type]||{label:d.type}, dups=dupSet(), jm=jackMap();
+  const kinds={}; d.ports.forEach(p=>kinds[p.kind]=(kinds[p.kind]||0)+1);
+  $("#insp").innerHTML=`${roNote()}<button class="back" data-back="rack">← ${esc(r.name)}</button><h2>${esc(d.name)}</h2><p class="sub">${esc(d.type==="custom"&&d.kind?d.kind:t.label.replace("…",""))} · U${d.u}${d.h>1?"–"+(d.u+d.h-1):""}</p>
+   <div class="fields" data-scope="dev">${fld("Name","name",d.name)}${fld("Management IP","ip",d.ip,{mono:true,ph:"10.0.0.1",bad:d.ip&&dups.has(d.ip.trim())})}
+   ${fld("Model","model",d.model,{ph:"e.g. Cisco C9200-24T"})}${fld("Serial","serial",d.serial,{mono:true})}
+   ${fld("Type","type",d.type,{select:Object.entries(TYPES).map(([k,v])=>[k,v.label])})}${fld("Height (U)","h",d.h,{type:"number"})}
+   ${fld("Bottom unit","u",d.u,{type:"number"})}${d.type==="custom"?fld("What is it","kind",d.kind||"",{ph:"e.g. KVM switch"}):""}
+   ${(d.type==="ups"||d.type==="battery")?`${fld("Battery installed","installed",d.installed||"",{type:"date"})}${fld("Replace battery by","replaceBy",d.replaceBy||"",{type:"date",bad:battDue(d)})}`:""}
+   ${fld("Notes","notes",d.notes,{area:true})}</div>
+   ${battDue(d)?`<div class="notice">The battery replacement date has passed.</div>`:""}
+   ${d.type==="custom"?`<div class="btnrow" style="margin:-6px 0 14px"><button class="btn" data-act="setupcustom" ${readOnly?"disabled":""}>Set up size and ports…</button></div>`:""}
+   <div class="sech">Ports</div>
+   <div class="fields" data-scope="ports">${fld("RJ45","rj45",kinds.rj45||0,{type:"number"})}${fld("SFP","sfp",kinds.sfp||0,{type:"number"})}${fld("Fiber LC","lc",kinds.lc||0,{type:"number"})}<label style="justify-content:flex-end"><button class="btn" data-act="applyports" ${readOnly?"disabled":""}>Apply port counts</button></label></div>
+   ${d.ports.length?`<div class="plist">${d.ports.map((pt,i)=>{ const o=pt.link?devById(r,pt.link.d):null; const jk=jm[`${r.id}:${d.id}:${i}`];
+     const to=o?esc(portName(o,pt.link.p)):pt.ext?esc(pt.ext):jk?`Wall port ${esc(jk.p.label)}`:"<span style='color:var(--muted)'>Free</span>";
+     return `<button data-pp="${i}"><span class="n">${pt.kind==="sfp"?"S":pt.kind==="lc"?"F":""}${pt.n}</span><span class="to">${pt.label?`<b>${esc(pt.label)}</b> → `:""}${to}${jk&&(o||pt.ext)?` · wall ${esc(jk.p.label)}`:""}</span><span class="ip">${esc(pt.ip)}</span></button>`; }).join("")}</div>`:`<p class="hint">This device has no network ports.</p>`}
+   <div class="btnrow"><button class="btn" data-nudge="1" ${readOnly?"disabled":""}>Move up</button><button class="btn" data-nudge="-1" ${readOnly?"disabled":""}>Move down</button>${delBtn("dev:"+d.id,"Remove from rack")}</div>`;
+}
+function renderPortInsp(r,d,p){
+  const pt=d.ports[p], dups=dupSet(), jk=jackMap()[`${r.id}:${d.id}:${p}`];
+  const target = pt.link ? pt.link.d : (pt.ext ? "__ext" : "");
+  const pend=$("#insp").dataset.pendDev; const chosenDev = pend ? pend : target;
+  let portSel="";
+  if(chosenDev && chosenDev!=="__ext"){ const o=devById(r,chosenDev);
+    if(o) portSel = fld("Port on "+o.name,"linkp",pt.link&&pt.link.d===o.id?pt.link.p:"",{full:true,select:[["","Choose a port…"],...o.ports.map((op,i)=>{ if(o.id===d.id&&i===p) return null; const busy=op.link||op.ext; const who=op.link?devById(r,op.link.d):null;
+      return [i,`${op.kind.toUpperCase()} ${op.n}${op.label?" ("+op.label+")":""}${busy?(" — in use"+(who?" by "+who.name:"")):""}`]; }).filter(Boolean)]}); }
+  $("#insp").innerHTML=`${roNote()}<button class="back" data-back="dev">← ${esc(d.name)}</button><h2>${esc(d.name)} · port ${pt.n}</h2><p class="sub">${pt.kind.toUpperCase()} · ${pt.link?"connected":pt.ext?"runs outside the rack":"free"}</p>
+   ${jk?`<div class="trace"><div class="hop"><span><b>Wall port ${esc(jk.p.label)}</b><small>${esc(floorName(jk.s,jk.p.floor))}${jk.p.room?" · "+esc(jk.p.room):""}${jk.p.endpoint?" · "+esc(jk.p.endpoint):""}</small><br><button class="linkbtn" data-showpin="${jk.p.id}">Show on floor plan</button></span></div></div>`:""}
+   <div class="fields" data-scope="port">${fld("Label","label",pt.label,{ph:"e.g. Uplink, Desk 2-14"})}${fld("IP address","ip",pt.ip,{mono:true,ph:"192.168.1.10",bad:pt.ip&&dups.has(pt.ip.trim())})}
+   ${fld("VLAN","vlan",pt.vlan,{mono:true})}${fld("MAC","mac",pt.mac,{mono:true,ph:"aa:bb:cc:dd:ee:ff"})}</div>
+   <div class="sech">Cable</div>
+   <div class="fields" data-scope="port">
+   ${fld("Connected to","linkd",chosenDev,{full:true,select:[["","Nothing (free)"],["__ext","Something outside this rack…"],...r.devices.filter(x=>x.ports.length).map(x=>[x.id,x.name+(x.model?" · "+x.model:"")])]})}
+   ${chosenDev==="__ext"?fld("Destination","ext",pt.ext,{full:true,ph:"e.g. ISP demarc, another rack"}):""}
+   ${portSel}
+   ${fld("Cable ID","cable",pt.cable,{mono:true,ph:"C-0142"})}${fld("Color","color",pt.color,{select:[["","—"],...Object.keys(COLORS).map(c=>[c,c[0].toUpperCase()+c.slice(1)])]})}
+   ${fld("Length","len",pt.len,{ph:"2 m"})}
+   ${(pt.link||pt.ext)?fld("Move this end to","moveto","",{full:true,select:[["","Choose a free port…"],...r.devices.flatMap(x=>x.ports.map((op,i)=>(!op.link&&!op.ext&&!(x.id===d.id&&i===p))?[x.id+":"+i,portName(x,i)]:null).filter(Boolean))]}):""}
+   ${fld("Notes","note",pt.note,{area:true})}</div>
+   ${(pt.link||pt.ext)?`<p class="hint">Tip: drag this port onto another port in the rack to move the cable. The other end stays where it is.</p>`:`<p class="hint">Tip: drag this port onto another free port to connect them.</p>`}
+   ${pt.link?`<div class="btnrow"><button class="btn" data-goto="${pt.link.d}:${pt.link.p}">Go to other end</button><button class="btn danger" data-act="unlink" ${readOnly?"disabled":""}>Disconnect</button></div>`:pt.ext?`<div class="btnrow"><button class="btn danger" data-act="unlink" ${readOnly?"disabled":""}>Disconnect</button></div>`:""}`;
+}
+function renderSiteSideInsp(el){
+  const s=site();
+  if(!s){ el.innerHTML=`<div class="empty">Add a site to record its address, floor plans and wall ports.</div>`; return; }
+  const p=(s.pins||[]).find(x=>x.id===sel.pin);
+  if(p) return p.kind==="rack" ? renderRackPinInsp(el,s,p) : renderJackInsp(el,s,p);
+  const f=floor();
+  el.innerHTML=`${roNote()}<h2>${esc(s.name)}</h2><p class="sub">Site details</p>
+   <div class="fields" data-scope="site">${fld("Site name","name",s.name,{full:true})}
+   ${fld("Address","address",s.address||"",{area:true,rows:3,ph:"Street\nCity, Province/State\nPostal code"})}
+   ${fld("On-site contact","contact",s.contact||"",{full:true,ph:"Name and phone"})}${fld("Notes","notes",s.notes||"",{area:true,ph:"Access hours, door codes kept elsewhere, ISP account"})}</div>
+   ${f?`<div class="sech">Floor: ${esc(f.name)}</div>
+   <div class="fields" data-scope="floor" data-fid="${f.id}">${fld("Floor name","fname",f.name,{full:true})}</div>
+   <div class="btnrow" style="margin-bottom:16px">${f.plan?delBtn("plan:"+f.id,"Remove floor plan"):""}${s.floors.length>1?delBtn("floor:"+f.id,"Delete floor"):""}</div>`:""}
+   <p class="hint">Click <b>+ Wall port</b>, then click the floor plan where each jack is. Select a wall port to patch it to a rack port and see the device behind it.</p>
+   <div class="btnrow">${delBtn("site","Delete site")}</div>`;
+}
+function renderJackInsp(el,s,p){
+  const t=trace(p), dups=dupSet();
+  const lk=p.link||{};
+  const racksHere=siteRacks();
+  const r=S.racks[lk.r], d=devById(r,lk.d);
+  const jm=jackMap();
+  el.innerHTML=`${roNote()}<button class="back" data-back="site">← ${esc(s.name)}</button><h2>Wall port ${esc(p.label)}</h2><p class="sub">${esc(floorName(s,p.floor))}${p.room?" · "+esc(p.room):""}</p>
+   <div class="trace">
+     <div class="hop"><span><b>${esc(p.endpoint||"Connected device")}</b><small>${esc(p.eip||"no IP")}${p.mac?" · "+esc(p.mac):""}</small></span></div>
+     <div class="hop"><span><b>Wall port ${esc(p.label)}</b><small>${esc(p.room||floorName(s,p.floor))}${p.cable?" · cable "+esc(p.cable):""}</small></span></div>
+     ${t?`<div class="hop"><span><b>${esc(portName(t.d,t.pi))}</b><small>${esc(t.r.name)}</small><br><button class="linkbtn" data-showrack="${t.r.id}:${t.d.id}:${t.pi}">Show in rack</button></span></div>
+       ${t.o?`<div class="hop last"><span><b>${esc(portName(t.o,t.oi))}</b><small>${t.op.vlan?"VLAN "+esc(t.op.vlan):"no VLAN set"}${t.o.ip?" · "+esc(t.o.ip):""}${t.op.cable?" · patch "+esc(t.op.cable):""}</small><br><button class="linkbtn" data-showrack="${t.r.id}:${t.o.id}:${t.oi}">Show in rack</button></span></div>`
+        :`<div class="hop last"><span class="gap">The patch panel port isn't connected to a switch yet.</span></div>`}`
+      :`<div class="hop last"><span class="gap">Not patched to a rack yet. Choose the panel port below.</span></div>`}
+   </div>
+   <div class="fields" data-scope="pin">${fld("Wall port label","label",p.label,{mono:true,ph:"2-14"})}${fld("Floor","floor",p.floor,{select:s.floors.map(f=>[f.id,f.name])})}
+   ${fld("Room / area","room",p.room,{full:true,ph:"e.g. Reception, Office 204"})}</div>
+   <div class="sech">Patched to</div>
+   <div class="fields" data-scope="pin">
+   ${fld("Rack","lr",lk.r||"",{full:true,select:[["","Not patched"],...racksHere.map(x=>[x.id,x.name])]})}
+   ${r?fld("Device","ld",lk.d||"",{full:true,select:[["","Choose a device…"],...r.devices.filter(x=>x.ports.length).map(x=>[x.id,x.name+(x.model?" · "+x.model:"")])]}):""}
+   ${d?fld("Port","lp",lk.p??"",{full:true,select:[["","Choose a port…"],...d.ports.map((op,i)=>{ const other=jm[`${r.id}:${d.id}:${i}`]; return [i,`${op.kind.toUpperCase()} ${op.n}${op.label?" ("+op.label+")":""}${other&&other.p.id!==p.id?" — wall port "+other.p.label:""}`]; })]}):""}
+   ${fld("Cable ID","cable",p.cable||"",{mono:true,ph:"W-214"})}</div>
+   <div class="sech">Plugged into this wall port</div>
+   <div class="fields" data-scope="pin">${fld("Device","endpoint",p.endpoint,{full:true,ph:"e.g. Reception PC, Printer HP-2F"})}
+   ${fld("Device IP","eip",p.eip,{mono:true,ph:"10.0.20.45",bad:p.eip&&dups.has(p.eip.trim())})}${fld("MAC","mac",p.mac,{mono:true})}
+   ${fld("Notes","note",p.note,{area:true})}</div>
+   <div class="btnrow">${delBtn("pin:"+p.id,"Delete wall port")}</div>`;
+}
+function renderRackPinInsp(el,s,p){
+  const r=S.racks[p.rack];
+  el.innerHTML=`${roNote()}<button class="back" data-back="site">← ${esc(s.name)}</button><h2>${esc(r?.name||p.label||"Rack location")}</h2><p class="sub">Rack location · ${esc(floorName(s,p.floor))}</p>
+   <div class="fields" data-scope="pin">${fld("Rack","rack",p.rack||"",{full:true,select:[["","Choose a rack…"],...siteRacks().map(x=>[x.id,x.name])]})}
+   ${fld("Label","label",p.label,{full:true,ph:"Used when no rack is chosen"})}${fld("Room","room",p.room,{full:true,ph:"Server room"})}</div>
+   <div class="btnrow">${r?`<button class="btn primary" data-openrack="${r.id}">Open rack</button>`:""}${delBtn("pin:"+p.id,"Delete marker")}</div>`;
+}
+
+/* ---------- actions ---------- */
+function select(dev,port=null){ sel={dev,port,slot:null,pin:null}; armed=null; $("#insp").dataset.pendDev=""; render(); }
+function selectPin(id){ sel={dev:null,port:null,slot:null,pin:id}; armed=null; render(); }
+function createSite(){
+  if(readOnly) return; const id=uid(), n=Object.keys(S.sites).length+1;
+  S.sites[id]={id,name:"Site "+pad2(n),address:"",contact:"",notes:"",floors:[{id:uid(),name:"Ground floor",plan:null}],pins:[]};
+  const firstSite = n===1;
+  curSite=id; curFloor=S.sites[id].floors[0].id; view="site"; menuOpen=false; sel={dev:null,port:null,slot:null,pin:null};
+  persist("sites",id);
+  if(firstSite) for(const r of Object.values(S.racks)) if(!rackSite(r)){ r.siteId=id; persist("racks",r.id); }
+  pickDefaults(); render(); toast("Site added. Fill in its name and address on the right.");
+  setTimeout(()=>{ const i=$("#f_name"); i?.focus(); i?.select(); },0);
+}
+function createRack(){ if(readOnly) return; if(!site()) return createSite(); const id=uid(); const n=siteRacks().length+1;
+  S.racks[id]={id,siteId:curSite,name:"Rack "+pad2(n),location:"",units:42,notes:"",devices:[]}; curId=id; sel={dev:null,port:null,slot:null,pin:null}; view="rack"; persist("racks",id); render(); toast("Rack created. Drag devices in from the library."); }
+function nudge(d,dir){ const r=rack();
+  for(let k=1;k<=r.units;k++){ const u=d.u+dir*k; if(u<1||u+d.h-1>r.units) break; if(fits(r,u,d.h,d.id)){ d.u=u; saveRack(); return; } }
+  toast(`No free space ${dir>0?"above":"below"} ${d.name}.`); }
+function placePin(e){
+  const s=site(), f=floor(), plan=$("#plan"); if(!s||!f||!plan) return;
+  const b=plan.getBoundingClientRect(); const x=Math.max(0,Math.min(1,(e.clientX-b.left)/b.width)), y=Math.max(0,Math.min(1,(e.clientY-b.top)/b.height));
+  s.pins ||= [];
+  if(placeMode==="jack"){ const used=new Set(s.pins.map(p=>p.label)); let i=s.pins.filter(p=>p.kind==="jack").length+1; while(used.has(`WP-${pad2(i)}`)) i++;
+    const p={id:uid(),kind:"jack",floor:f.id,x,y,label:`WP-${pad2(i)}`,room:"",link:null,cable:"",endpoint:"",eip:"",mac:"",note:""}; s.pins.push(p); sel={dev:null,port:null,slot:null,pin:p.id}; }
+  else { const taken=new Set(s.pins.filter(p=>p.kind==="rack").map(p=>p.rack)); const r=siteRacks().find(x=>!taken.has(x.id));
+    const p={id:uid(),kind:"rack",floor:f.id,x,y,label:"",room:"",rack:r?.id||""}; s.pins.push(p); sel={dev:null,port:null,slot:null,pin:p.id}; placeMode=null; }
+  saveSite();
+}
+
+/* move one end of a cable to another port; the other end stays put */
+function canDrop(r,a,i,b,j){
+  if(a.id===b.id&&i===j) return {ok:false};
+  const src=a.ports[i], tgt=b.ports[j];
+  if(src.link&&src.link.d===b.id&&src.link.p===j) return {ok:false,msg:"That's the other end of this cable."};
+  if(tgt.link||tgt.ext) return {ok:false,msg:`${portName(b,j)} is already in use. Disconnect it first.`};
+  return {ok:true};
+}
+function movePortEnd(r,a,i,b,j){
+  const c=canDrop(r,a,i,b,j); if(!c.ok){ if(c.msg) toast(c.msg); return false; }
+  const src=a.ports[i], tgt=b.ports[j], cab={cable:src.cable,color:src.color,len:src.len};
+  if(src.link){ const peerDev=devById(r,src.link.d), pp=src.link.p, peer=peerDev?.ports[pp];
+    src.link=null; Object.assign(src,{cable:"",color:"",len:""});
+    tgt.link={d:peerDev.id,p:pp}; if(peer) peer.link={d:b.id,p:j}; Object.assign(tgt,cab);
+    toast(`Cable moved to ${portName(b,j)}. Other end stays on ${portName(peerDev,pp)}.`); }
+  else if(src.ext){ tgt.ext=src.ext; Object.assign(tgt,cab); src.ext=""; Object.assign(src,{cable:"",color:"",len:""});
+    toast(`Cable to ${tgt.ext} moved to ${portName(b,j)}.`); }
+  else { linkPorts(r,a,i,b,j); toast(`Connected ${portName(a,i)} to ${portName(b,j)}.`); }
+  sel={dev:b.id,port:j,slot:null,pin:null}; $("#insp").dataset.pendDev=""; saveRack(); return true;
+}
+
+/* ---------- floor plan geometry: rotation + crop, kept non-destructive ---------- */
+function planGeom(pl){ const W=pl?.w||1600, H=pl?.h||1000, t=(pl?.rot||0)*Math.PI/180, c=Math.abs(Math.cos(t)), s=Math.abs(Math.sin(t));
+  const RW=W*c+H*s, RH=W*s+H*c, cr=pl?.crop||{x:0,y:0,w:1,h:1}; return {W,H,t,RW,RH,cr,DW:cr.w*RW,DH:cr.h*RH}; }
+function imgStyle(pl){ const g=planGeom(pl); const cx=(g.RW/2-g.cr.x*g.RW)/g.DW*100, cy=(g.RH/2-g.cr.y*g.RH)/g.DH*100;
+  return `left:${cx}%;top:${cy}%;width:${g.W/g.DW*100}%;height:${g.H/g.DH*100}%;transform:translate(-50%,-50%) rotate(${pl?.rot||0}deg)`; }
+function dispToImg(fx,fy,pl){ const g=planGeom(pl); const xr=g.cr.x*g.RW+fx*g.DW, yr=g.cr.y*g.RH+fy*g.DH, dx=xr-g.RW/2, dy=yr-g.RH/2, c=Math.cos(g.t), s=Math.sin(g.t);
+  return {x:c*dx+s*dy+g.W/2, y:-s*dx+c*dy+g.H/2}; }
+function imgToRot(x,y,pl){ const g=planGeom(pl), dx=x-g.W/2, dy=y-g.H/2, c=Math.cos(g.t), s=Math.sin(g.t); return {x:c*dx-s*dy+g.RW/2, y:s*dx+c*dy+g.RH/2}; }
+function imgToDisp(x,y,pl){ const g=planGeom(pl), r=imgToRot(x,y,pl); return {fx:(r.x-g.cr.x*g.RW)/g.DW, fy:(r.y-g.cr.y*g.RH)/g.DH}; }
+
+/* ---------- rotate & crop editor ---------- */
+let pe=null;
+function openPlanEditor(){
+  const s=site(), f=floor(); if(!s||!f?.plan||readOnly) return;
+  const src=planSrc(s,f); if(!src) return toast("The floor plan is still loading. Try again in a moment.");
+  const pl=f.plan;
+  pe={fid:f.id, rot:pl.rot||0, crop:{...(pl.crop||{x:0,y:0,w:1,h:1})}, img:null, w:pl.w||1600, h:pl.h||1000};
+  const fine=((pe.rot%90)+90+45)%90-45;
+  $("#modalRoot").innerHTML=`<div class="veil" id="veil"><div class="modal wide" role="dialog" aria-label="Rotate and crop floor plan">
+   <h2>Rotate and crop ${esc(f.name)}</h2><p class="hint">Drag the box or its handles to crop. Drag on the dark area to draw a new box. Wall ports stay on the same spot of the plan.</p>
+   <div class="pe-stage" id="peStage"><div class="pe-wrap" id="peWrap"><canvas id="peCanvas"></canvas>
+     <div class="crop" id="peCrop" data-m="move">${["nw","n","ne","e","se","s","sw","w"].map(h=>`<i class="h h-${h}" data-m="${h}"></i>`).join("")}</div></div></div>
+   <div class="pe-tools">
+     <div class="btnrow"><button class="btn" data-pe="left">⟲ Rotate left</button><button class="btn" data-pe="right">⟳ Rotate right</button><button class="btn" data-pe="flipcrop">Full image</button><button class="btn" data-pe="reset">Reset</button></div>
+     <label class="pe-fine" for="peFine">Straighten <input type="range" id="peFine" min="-45" max="45" step="0.5" value="${fine}"><span class="mono" id="peFineVal">${fine.toFixed(1)}°</span></label>
+   </div>
+   <div class="btnrow" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="peCancel">Cancel</button><button class="btn primary" id="peSave">Save</button></div></div></div>`;
+  $("#peCancel").onclick=()=>{ pe=null; closeModal(); };
+  $("#peSave").onclick=savePlanEdit;
+  $("#peFine").oninput=e=>{ const base=Math.round((pe.rot-(((pe.rot%90)+90+45)%90-45))/90)*90; pe.rot=base+(+e.target.value); $("#peFineVal").textContent=(+e.target.value).toFixed(1)+"°"; peDraw(); };
+  $("#modalRoot").querySelectorAll("[data-pe]").forEach(b=>b.onclick=()=>{
+    const a=b.dataset.pe, c=pe.crop;
+    if(a==="right"){ pe.rot+=90; pe.crop={x:1-c.y-c.h,y:c.x,w:c.h,h:c.w}; }
+    if(a==="left"){ pe.rot-=90; pe.crop={x:c.y,y:1-c.x-c.w,w:c.h,h:c.w}; }
+    if(a==="flipcrop") pe.crop={x:0,y:0,w:1,h:1};
+    if(a==="reset"){ pe.rot=0; pe.crop={x:0,y:0,w:1,h:1}; $("#peFine").value=0; $("#peFineVal").textContent="0.0°"; }
+    pe.rot=((pe.rot%360)+360)%360; if(pe.rot>180) pe.rot-=360; peDraw(); });
+  const img=new Image(); img.onload=()=>{ pe&&(pe.img=img, peDraw()); }; img.onerror=()=>toast("Couldn't open the floor plan for editing."); img.src=src;
+  bindCrop();
+}
+function peDraw(){
+  if(!pe?.img) return; const st=$("#peStage"), cv=$("#peCanvas"); if(!st||!cv) return;
+  const g=planGeom({w:pe.w,h:pe.h,rot:pe.rot}); const k=Math.min((st.clientWidth-24)/g.RW,(st.clientHeight-24)/g.RH);
+  const cw=Math.max(1,Math.round(g.RW*k)), ch=Math.max(1,Math.round(g.RH*k)), dpr=window.devicePixelRatio||1;
+  cv.width=cw*dpr; cv.height=ch*dpr; cv.style.width=cw+"px"; cv.style.height=ch+"px"; $("#peWrap").style.width=cw+"px"; $("#peWrap").style.height=ch+"px";
+  const x=cv.getContext("2d"); x.setTransform(dpr,0,0,dpr,0,0); x.fillStyle="#fff"; x.fillRect(0,0,cw,ch);
+  x.save(); x.translate(cw/2,ch/2); x.rotate(g.t); x.drawImage(pe.img,-pe.w*k/2,-pe.h*k/2,pe.w*k,pe.h*k); x.restore();
+  // show where wall ports will land
+  const s=site(), f=s?.floors.find(z=>z.id===pe.fid);
+  for(const p of (s?.pins||[]).filter(p=>p.floor===pe.fid)){ const im=dispToImg(p.x,p.y,f.plan), r=imgToRot(im.x,im.y,{w:pe.w,h:pe.h,rot:pe.rot});
+    x.beginPath(); x.arc(r.x*k,r.y*k,4,0,Math.PI*2); x.fillStyle=p.kind==="rack"?"#15202b":"#1d5bd3"; x.fill(); x.lineWidth=1.5; x.strokeStyle="#fff"; x.stroke(); }
+  peCropStyle();
+}
+function peCropStyle(){ const c=pe.crop, el=$("#peCrop"); if(!el) return; Object.assign(el.style,{left:c.x*100+"%",top:c.y*100+"%",width:c.w*100+"%",height:c.h*100+"%"}); }
+function bindCrop(){
+  const wrap=$("#peWrap"); let dr=null; const MIN=.04;
+  wrap.addEventListener("pointerdown",e=>{
+    const b=wrap.getBoundingClientRect(), m=e.target.dataset.m || "new";
+    const px=(e.clientX-b.left)/b.width, py=(e.clientY-b.top)/b.height;
+    dr={m,px,py,b,start:{...pe.crop}}; wrap.setPointerCapture(e.pointerId); e.preventDefault();
+    if(m==="new") pe.crop={x:px,y:py,w:0,h:0};
+  });
+  wrap.addEventListener("pointermove",e=>{
+    if(!dr) return; const {b,start:s0}=dr; const px=Math.max(0,Math.min(1,(e.clientX-b.left)/b.width)), py=Math.max(0,Math.min(1,(e.clientY-b.top)/b.height));
+    const dx=px-dr.px, dy=py-dr.py; let {x,y,w,h}=s0;
+    if(dr.m==="move"){ x=Math.max(0,Math.min(1-w,x+dx)); y=Math.max(0,Math.min(1-h,y+dy)); }
+    else if(dr.m==="new"){ x=Math.min(dr.px,px); y=Math.min(dr.py,py); w=Math.abs(px-dr.px); h=Math.abs(py-dr.py); }
+    else { let x2=x+w, y2=y+h;
+      if(dr.m.includes("w")) x=Math.min(x2-MIN,Math.max(0,x+dx)); if(dr.m.includes("e")) x2=Math.max(x+MIN,Math.min(1,x2+dx));
+      if(dr.m.includes("n")) y=Math.min(y2-MIN,Math.max(0,y+dy)); if(dr.m.includes("s")) y2=Math.max(y+MIN,Math.min(1,y2+dy));
+      w=x2-x; h=y2-y; }
+    pe.crop={x,y,w,h}; peCropStyle();
+  });
+  const end=()=>{ if(!dr) return; if(pe.crop.w<MIN||pe.crop.h<MIN) pe.crop={...dr.start}; dr=null; peCropStyle(); };
+  wrap.addEventListener("pointerup",end); wrap.addEventListener("pointercancel",end);
+}
+function savePlanEdit(){
+  const s=site(), f=s?.floors.find(z=>z.id===pe?.fid); if(!f?.plan){ closeModal(); return; }
+  const old={...f.plan}, np={...f.plan,rot:pe.rot,crop:{...pe.crop}};
+  let edge=0;
+  for(const p of (s.pins||[]).filter(p=>p.floor===f.id)){ const im=dispToImg(p.x,p.y,old), d=imgToDisp(im.x,im.y,np);
+    if(d.fx<0||d.fx>1||d.fy<0||d.fy>1) edge++; p.x=d.fx; p.y=d.fy; }
+  f.plan=np; pe=null; closeModal(); saveSite();
+  toast(edge?`Floor plan updated. ${edge} marker${edge===1?" is":"s are"} outside the cropped area and hidden. Widen the crop to see ${edge===1?"it":"them"} again.`:"Floor plan updated.");
+}
+window.addEventListener("resize",()=>{ if(pe) peDraw(); });
+
+/* ---------- floor plan upload ---------- */
+function loadScript(src){ return new Promise((res,rej)=>{ const sc=document.createElement("script"); sc.src=src; sc.onload=res; sc.onerror=()=>rej({code:"pdf_load"}); document.head.appendChild(sc); }); }
+function loadImg(src){ return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej({code:"bad_image"}); i.src=src; }); }
+function canvasBlob(c,type,q){ return new Promise(res=>c.toBlob(res,type,q)); }
+function drawTo(img,max){ const w0=img.naturalWidth||1600, h0=img.naturalHeight||1000, k=Math.min(1,max/Math.max(w0,h0));
+  const c=document.createElement("canvas"); c.width=Math.round(w0*k); c.height=Math.round(h0*k); const ctx=c.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,c.width,c.height); ctx.drawImage(img,0,0,c.width,c.height); return c; }
+async function pdfToBlob(file){
+  if(!window.pdfjsLib){ await loadScript(PDFJS+"pdf.worker.min.js"); await loadScript(PDFJS+"pdf.min.js"); }
+  const lib=window.pdfjsLib; lib.GlobalWorkerOptions.workerSrc=PDFJS+"pdf.worker.min.js";
+  const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise; const page=await pdf.getPage(1);
+  const v0=page.getViewport({scale:1}); const vp=page.getViewport({scale:Math.min(4,2600/Math.max(v0.width,v0.height))});
+  const c=document.createElement("canvas"); c.width=Math.round(vp.width); c.height=Math.round(vp.height); const ctx=c.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,c.width,c.height);
+  await page.render({canvasContext:ctx,viewport:vp}).promise; return await canvasBlob(c,"image/png");
+}
+async function getAssets(){ if(assetsNs===undefined){ try{ assetsNs = window.claude?.use ? await window.claude.use("assets") : null; }catch(e){ assetsNs=null; } } return assetsNs; }
+async function handlePlanFile(file){
+  const s=site(), f=floor(); if(!s||!f||!file||readOnly) return;
+  toast("Preparing floor plan…");
+  try{
+    let blob=file, type=file.type;
+    if(type==="application/pdf"||/\.pdf$/i.test(file.name)){ blob=await pdfToBlob(file); type="image/png"; }
+    if(!/^image\/(png|jpeg|gif|webp|svg\+xml)$/.test(type)) return toast("Use a PNG, JPG, WebP, SVG or PDF floor plan.");
+    const url=URL.createObjectURL(blob); const img=await loadImg(url);
+    let w=img.naturalWidth||1600, h=img.naturalHeight||1000;
+    const old=f.plan;
+    if(type!=="image/svg+xml" && (blob.size>15e6 || Math.max(w,h)>6000)){ const c=drawTo(img,4000); blob=await canvasBlob(c,"image/jpeg",.85); type="image/jpeg"; }
+    f.plan=await storePlanImage(s,f,blob,type,w,h);
+    URL.revokeObjectURL(url);
+    persist("sites",s.id); render(); toast("Floor plan added. Use Rotate / crop to straighten or trim it.");
+    if(old) dropPlanStorage(old);
+  }catch(e){
+    const c=e?.code;
+    toast(c==="too_large"?"That file is too large. Use one under 20 MB.":c==="unsupported_type"?"That file type isn't supported. Use PNG, JPG, SVG or PDF.":c==="quota_or_state"?"Floor plan storage is full. Remove an old plan first.":c==="pdf_load"?"Couldn't load the PDF reader. Try a PNG or JPG export instead.":c==="bad_image"?"That image couldn't be read. Try another file.":"Couldn't add the floor plan. Try again, or use a PNG or JPG.");
+  }
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",e=>{
+  if(justDragged) return;
+  if(menuOpen && !e.target.closest("#sitePick")){ menuOpen=false; renderSide(); }
+  if(placeMode && e.target.closest("#plan") && !e.target.closest(".pin")){ placePin(e); return; }
+  const t=e.target.closest("button,a,[data-dev],.slot,tr.click"); if(!t) return;
+  if(t.tagName==="A") return;
+  const r=rack(), s=site();
+  if(t.id==="siteBtn"){ menuOpen=!menuOpen; renderSide(); return; }
+  if(t.dataset.site){ curSite=t.dataset.site; curFloor=null; menuOpen=false; view="site"; placeMode=null; sel={dev:null,port:null,slot:null,pin:null}; armed=null; pickDefaults(); render(); return; }
+  if(t.dataset.view){ view=t.dataset.view; placeMode=null; armed=null; if(view!=="site") sel.pin=null; render(); return; }
+  if(t.dataset.rack){ curId=t.dataset.rack; view=view==="table"?"table":"rack"; placeMode=null; sel={dev:null,port:null,slot:null,pin:null}; armed=null; render(); return; }
+  const act=t.dataset.act;
+  if(act==="newsite") return createSite();
+  if(act==="sample") return loadSample();
+  if(t.id==="newRack"||act==="newrack") return createRack();
+  if(t.id==="importBtn"||act==="import") return openImport();
+  if(t.id==="exportJson") return exportJson();
+  if(t.id==="exportCsv") return exportCsv();
+  if(act==="copyaddr"){ const a=(s.address||"").trim(); navigator.clipboard?.writeText(a).then(()=>toast("Address copied."),()=>toast("Select the address and copy it.")); return; }
+  if(t.dataset.floor){ curFloor=t.dataset.floor; sel.pin=null; armed=null; render(); return; }
+  if(act==="addfloor"){ if(readOnly) return; const f={id:uid(),name:`Floor ${s.floors.length+1}`,plan:null}; s.floors.push(f); curFloor=f.id; sel.pin=null; saveSite(); return; }
+  if(act==="placejack"||act==="placerack"){ const m=act==="placejack"?"jack":"rack"; placeMode = placeMode===m?null:m; if(placeMode) toast(m==="jack"?"Click the floor plan where each wall port is. Press Esc when done.":"Click where the rack sits on the floor plan."); renderSite(); return; }
+  if(act==="editplan") return openPlanEditor();
+  if(act==="zin"){ zoom=Math.min(4,+(zoom*1.25).toFixed(2)); renderSite(); return; }
+  if(act==="zout"){ zoom=Math.max(.5,+(zoom/1.25).toFixed(2)); renderSite(); return; }
+  if(act==="zfit"){ zoom=1; renderSite(); return; }
+  if(t.dataset.pin){ selectPin(t.dataset.pin); return; }
+  if(t.dataset.pinrow){ const p=pinsAll().find(x=>x.p.id===t.dataset.pinrow); if(p){ curSite=p.s.id; curFloor=p.p.floor; view="site"; selectPin(p.p.id); } return; }
+  if(t.dataset.showpin){ const p=pinsAll().find(x=>x.p.id===t.dataset.showpin); if(p){ curSite=p.s.id; curFloor=p.p.floor; view="site"; selectPin(p.p.id); } return; }
+  if(t.dataset.showrack){ const [rid,did,pi]=t.dataset.showrack.split(":"); curId=rid; view="rack"; select(did,+pi); return; }
+  if(t.dataset.openrack){ curId=t.dataset.openrack; view="rack"; select(null); return; }
+  if(t.dataset.type && t.closest("#lib")){ if(!r) return toast(site()?"Create a rack first.":"Add a site first."); if(readOnly) return; const h=TYPES[t.dataset.type].h, u=firstFree(r,h); if(u==null) return toast(`No ${h}U gap left in this rack.`); const d=newDevice(r,t.dataset.type,u); r.devices.push(d); view="rack"; sel={dev:d.id,port:null,slot:null,pin:null}; saveRack(); afterAdd(d); return; }
+  if(t.dataset.addat){ if(readOnly||!r) return; const ty=t.dataset.addat; if(!fits(r,sel.slot,TYPES[ty].h)) return; const d=newDevice(r,ty,sel.slot); r.devices.push(d); sel={dev:d.id,port:null,slot:null,pin:null}; saveRack(); afterAdd(d); return; }
+  if(t.classList.contains("port")){ e.stopPropagation(); select(t.dataset.d,+t.dataset.p); return; }
+  if(t.matches("tr.click")){ const p=t.dataset.p; view="rack"; select(t.dataset.d, p===""?null:+p); return; }
+  if(t.dataset.dev){ select(t.dataset.dev); return; }
+  if(t.classList.contains("slot")){ if(readOnly) return; sel={dev:null,port:null,slot:+t.dataset.u,pin:null}; render(); return; }
+  if(t.dataset.back==="rack"){ select(null); return; }
+  if(t.dataset.back==="dev"){ select(sel.dev); return; }
+  if(t.dataset.back==="site"){ selectPin(null); return; }
+  if(t.dataset.pp!=null){ select(sel.dev,+t.dataset.pp); return; }
+  if(t.dataset.goto){ const [d,p]=t.dataset.goto.split(":"); select(d,+p); return; }
+  if(t.dataset.nudge){ const d=devById(r,sel.dev); if(d) nudge(d,+t.dataset.nudge); return; }
+  if(t.dataset.del){ if(armed!==t.dataset.del){ armed=t.dataset.del; renderInsp(); return; }
+    const k=t.dataset.del; armed=null;
+    if(k==="rack"){ const id=curId; for(const x of pinsAll()) if(x.p.link?.r===id || x.p.rack===id){ if(x.p.link?.r===id) x.p.link=null; if(x.p.rack===id) x.p.rack=""; persist("sites",x.s.id); }
+      delete S.racks[id]; persist("racks",id); curId=null; pickDefaults(); render(); toast("Rack deleted."); return; }
+    if(k.startsWith("dev:")){ const id=k.slice(4), d=devById(r,id); d.ports.forEach((_,i)=>unlinkPort(r,d,i));
+      for(const x of pinsAll()) if(x.p.link?.r===r.id && x.p.link.d===id){ x.p.link=null; persist("sites",x.s.id); }
+      r.devices=r.devices.filter(x=>x.id!==id); sel={dev:null,port:null,slot:null,pin:null}; saveRack(); toast(`${d.name} removed.`); return; }
+    if(k==="site"){ const id=curSite; const plans=s.floors.filter(f=>f.plan?.asset).map(f=>f.plan.asset);
+      for(const f of s.floors) dropPlanStorage(f.plan);
+      for(const x of Object.values(S.racks)) if(x.siteId===id){ x.siteId=""; persist("racks",x.id); }
+      delete S.sites[id]; persist("sites",id); curSite=null; pickDefaults(); render(); toast("Site deleted. Its racks are now unassigned.");
+      return; }
+    if(k.startsWith("floor:")){ const fid=k.slice(6), f=s.floors.find(x=>x.id===fid);
+      dropPlanStorage(f.plan);
+      s.floors=s.floors.filter(x=>x.id!==fid); s.pins=(s.pins||[]).filter(p=>p.floor!==fid); curFloor=null; pickDefaults(); saveSite(); toast(`${f.name} deleted.`); return; }
+    if(k.startsWith("plan:")){ const f=s.floors.find(x=>x.id===k.slice(5)); const old=f.plan; f.plan=null; saveSite();
+      dropPlanStorage(old);
+      toast("Floor plan removed. Wall ports stay where they were."); return; }
+    if(k.startsWith("pin:")){ s.pins=s.pins.filter(p=>p.id!==k.slice(4)); sel.pin=null; saveSite(); toast("Marker deleted."); return; } }
+  if(act==="unlink"){ const d=devById(r,sel.dev); unlinkPort(r,d,sel.port); d.ports[sel.port].ext=""; $("#insp").dataset.pendDev=""; saveRack(); return; }
+  if(act==="applyports"){ const d=devById(r,sel.dev); const want={rj45:+$("#f_rj45").value||0,sfp:+$("#f_sfp").value||0,lc:+$("#f_lc").value||0}; setPortCounts(r,d,want); saveRack(); return; }
+  if(act==="setupcustom"){ openCustomSetup(sel.dev,false); return; }
+});
+document.addEventListener("change",e=>{
+  const t=e.target; if(t.id==="showCables"){ showCables=t.checked; drawCables(); return; }
+  if(t.id==="impFile") return readImportFile(t);
+  if(t.id==="planFile"){ handlePlanFile(t.files[0]); t.value=""; return; }
+  const scopeEl=t.closest("[data-scope]"), scope=scopeEl?.dataset.scope, k=t.dataset.k; if(!scope||!k||readOnly) return;
+  let v=t.value;
+  if(scope==="site"){ const s=site(); s[k]=k==="address"||k==="notes"?v.trim():v.trim(); if(k==="name"&&!s.name) s.name="Untitled site"; saveSite(); return; }
+  if(scope==="floor"){ const f=site().floors.find(x=>x.id===scopeEl.dataset.fid); f.name=v.trim()||f.name; saveSite(); return; }
+  if(scope==="pin"){ const s=site(), p=s.pins.find(x=>x.id===sel.pin); if(!p) return;
+    if(k==="lr"){ p.link = v ? {r:v,d:null,p:null} : null; }
+    else if(k==="ld"){ p.link={r:p.link.r,d:v||null,p:null}; }
+    else if(k==="lp"){ if(v===""){ p.link.p=null; } else { const key=`${p.link.r}:${p.link.d}:${v}`; const other=jackMap()[key]; if(other&&other.p.id!==p.id){ other.p.link=null; persist("sites",other.s.id); toast(`Moved from wall port ${other.p.label}.`); } p.link.p=+v; } }
+    else if(k==="floor"){ p.floor=v; curFloor=v; }
+    else p[k]=v.trim();
+    saveSite(); return; }
+  const r=rack(); if(!r) return;
+  if(scope==="rack"){ if(k==="units"){ v=Math.max(1,Math.min(60,parseInt(v)||42)); const need=Math.max(0,...r.devices.map(d=>d.u+d.h-1)); if(v<need){ toast(`Devices reach U${need}. Move them down before shrinking the rack.`); render(); return; } }
+    r[k]=v; if(k==="siteId" && v && v!==curSite){ curSite=v; curFloor=null; toast(`Moved to ${S.sites[v].name}.`); } saveRack(); return; }
+  const d=devById(r,sel.dev); if(!d) return;
+  if(scope==="dev"){
+    if(k==="h"||k==="u"){ const n=parseInt(v)||1; const nu=k==="u"?n:d.u, nh=k==="h"?Math.max(1,n):d.h; if(!fits(r,nu,nh,d.id)){ toast("That would overlap another device or leave the rack."); render(); return; } d.u=nu; d.h=nh; saveRack(); return; }
+    if(k==="type"){ d.type=v; saveRack(); return; }
+    d[k]=v.trim(); saveRack(); return; }
+  if(scope==="port"){ const p=sel.port, pt=d.ports[p];
+    if(k==="linkd"){ if(v===""){ unlinkPort(r,d,p); pt.ext=""; $("#insp").dataset.pendDev=""; saveRack(); return; }
+      $("#insp").dataset.pendDev=v; if(v==="__ext") unlinkPort(r,d,p); renderInsp(); return; }
+    if(k==="linkp"){ if(v==="") return; const o=devById(r,$("#insp").dataset.pendDev||pt.link?.d); if(!o) return; linkPorts(r,d,p,o,+v); $("#insp").dataset.pendDev=""; saveRack(); toast(`Connected to ${portName(o,+v)}.`); return; }
+    if(k==="moveto"){ if(!v) return; const [bd,bj]=v.split(":"); const b=devById(r,bd); if(b) movePortEnd(r,d,p,b,+bj); return; }
+    if(k==="ext"){ unlinkPort(r,d,p); pt.ext=v.trim(); $("#insp").dataset.pendDev=""; saveRack(); return; }
+    pt[k]=v.trim(); if(["cable","color","len"].includes(k)) syncCable(r,d,p); saveRack(); return; }
+});
+$("#q").addEventListener("input",e=>{ q=e.target.value.trim(); if(view==="site") renderSite(); else if(view==="rack") renderRack(); else renderTable(); });
+window.addEventListener("resize",()=>requestAnimationFrame(drawCables));
+
+/* ---------- drag (rack devices, library items, floor plan markers) ---------- */
+let pd=null, justDragged=false, lastEv=null;
+function bodyRect(){ return $("#rbody")?.getBoundingClientRect(); }
+function snapU(clientY){ const r=rack(), b=bodyRect(); const y=clientY-b.top-pd.grabOff; const topIdx=Math.round(y/UH);
+  const u=(r.units-topIdx)-pd.h+1; return Math.max(1,Math.min(r.units-pd.h+1,u)); }
+function ghostAt(u,ok){ const body=$("#rbody"); if(!body) return; let g=$("#ghost"); if(!g){ g=document.createElement("div"); g.id="ghost"; g.className="ghost"; body.appendChild(g); }
+  g.style.top=((rack().units-(u+pd.h-1))*UH)+"px"; g.style.height=(pd.h*UH)+"px"; g.classList.toggle("bad",!ok);
+  g.dataset.label=`U${u}${pd.h>1?"–"+(u+pd.h-1):""}${ok?"":" · occupied"}`; }
+function startDrag(){
+  pd.started=true; document.body.classList.add("dragging-any");
+  if(pd.kind==="pin"){ pd.el.classList.add("dragging"); return; }
+  if(pd.kind==="resize"){ pd.el.classList.add("resizing"); $("#cables")?.classList.add("hide"); sel={dev:pd.id,port:null,slot:null,pin:null}; scrollLoop(); return; }
+  if(pd.kind==="port"){ pd.el.classList.add("dragsrc"); const r=rack(), src=devById(r,pd.d)?.ports[pd.p];
+    pd.anchor = src?.link ? $(`#rbody .port[data-d="${src.link.d}"][data-p="${src.link.p}"]`) : pd.el;
+    pd.stroke = COLORS[src?.color]||src?.color||"var(--accent)";
+    document.querySelectorAll("#cables path").forEach(x=>x.classList.add("moving"));
+    scrollLoop(); return; }
+  if(pd.kind==="lib" && view!=="rack"){ view="rack"; render(); }
+  $("#cables")?.classList.add("hide");
+  if(pd.kind==="dev"){ const er=pd.el.getBoundingClientRect(); pd.grabOff=pd.y-er.top; pd.el.classList.add("dragging"); sel={dev:pd.id,port:null,slot:null,pin:null}; }
+  else { pd.grabOff=UH/2; const c=document.createElement("div"); c.id="dragchip"; c.className="dragchip"; c.textContent=`${TYPES[pd.type].label} · ${pd.h}U`; document.body.appendChild(c); }
+  scrollLoop();
+}
+function moveDrag(e){
+  lastEv={clientX:e.clientX,clientY:e.clientY};
+  const st=$("#stage").getBoundingClientRect(); pd.scroll = e.clientY<st.top+48 ? -1 : e.clientY>st.bottom-48 ? 1 : 0;
+  if(pd.kind==="resize"){ const r=rack(), b=bodyRect(); if(!b) return; const y=e.clientY-b.top; const at=r.units-Math.floor(y/UH);
+    const u=Math.max(1,Math.min(pd.top,at)); pd.u=u; pd.h=pd.top-u+1; const ok=fits(r,u,pd.h,pd.id);
+    pd.el.style.height=(pd.h*UH-2)+"px"; ghostAt(u,ok); return; }
+  if(pd.kind==="port"){ const rw=$("#rw"), svg=$("#cables"); if(!rw||!svg) return; const box=rw.getBoundingClientRect(), r=rack();
+    document.querySelectorAll(".drop-ok,.drop-bad").forEach(x=>x.classList.remove("drop-ok","drop-bad")); pd.tgt=null;
+    const under=document.elementFromPoint(e.clientX,e.clientY)?.closest?.("#rbody .port");
+    if(under && under!==pd.el){ const b=devById(r,under.dataset.d), j=+under.dataset.p, c=canDrop(r,devById(r,pd.d),pd.p,b,j); under.classList.add(c.ok?"drop-ok":"drop-bad"); pd.tgt={d:b.id,p:j,ok:c.ok}; }
+    const a=(pd.anchor||pd.el).getBoundingClientRect(); const ax=a.left-box.left+a.width/2, ay=a.top-box.top+a.height/2, cx=e.clientX-box.left, cy=e.clientY-box.top;
+    let g=svg.querySelector("#dragg"); if(!g){ svg.insertAdjacentHTML("beforeend",`<g id="dragg"><path class="dragline"></path><circle class="dragdot" r="4"></circle></g>`); g=svg.querySelector("#dragg"); }
+    const mx=Math.max(ax,cx)+40; g.firstElementChild.setAttribute("d",`M${ax} ${ay} C${mx} ${ay} ${mx} ${cy} ${cx} ${cy}`); g.firstElementChild.setAttribute("stroke",pd.stroke);
+    g.lastElementChild.setAttribute("cx",cx); g.lastElementChild.setAttribute("cy",cy); g.lastElementChild.setAttribute("fill",pd.stroke);
+    return; }
+  if(pd.kind==="pin"){ const b=$("#plan")?.getBoundingClientRect(); if(!b) return; pd.fx=Math.max(0,Math.min(1,(e.clientX-b.left)/b.width)); pd.fy=Math.max(0,Math.min(1,(e.clientY-b.top)/b.height));
+    pd.el.style.left=pd.fx*100+"%"; pd.el.style.top=pd.fy*100+"%"; pd.scroll=0; return; }
+  const r=rack(), b=bodyRect(); if(!b) return;
+  if(pd.kind==="dev"){
+    const maxTop=(r.units-pd.h)*UH; let top=e.clientY-b.top-pd.grabOff; top=Math.max(0,Math.min(maxTop,top));
+    pd.el.style.top=top+"px"; const u=snapU(e.clientY); pd.u=u; ghostAt(u,fits(r,u,pd.h,pd.id));
+  } else {
+    const c=$("#dragchip"); if(c){ c.style.left=(e.clientX+12)+"px"; c.style.top=(e.clientY+12)+"px"; }
+    const over=e.clientX>=b.left&&e.clientX<=b.right&&e.clientY>=b.top-UH&&e.clientY<=b.bottom+UH;
+    if(over){ const u=snapU(e.clientY); pd.u=u; ghostAt(u,fits(r,u,pd.h)); } else { pd.u=null; $("#ghost")?.remove(); }
+  }
+}
+function scrollLoop(){ if(!pd||!pd.started) return; if(pd.scroll&&lastEv){ $("#stage").scrollTop+=pd.scroll*14; moveDrag(lastEv); } requestAnimationFrame(scrollLoop); }
+function endDrag(commit){
+  if(!pd) return; clearTimeout(pd.timer);
+  const p=pd; pd=null; $("#ghost")?.remove(); $("#dragchip")?.remove(); document.body.classList.remove("dragging-any");
+  if(!p.started) return;
+  justDragged=true; setTimeout(()=>justDragged=false,0);
+  if(p.kind==="resize"){ const r=rack(), d=devById(r,p.id);
+    if(commit&&d){ if(fits(r,p.u,p.h,p.id)){ if(d.h!==p.h||d.u!==p.u){ d.u=p.u; d.h=p.h; saveRack(); toast(`${d.name} is now ${d.h}U (U${d.u}${d.h>1?"–"+(d.u+d.h-1):""}).`); return; } } else toast("Another device is in the way. Move it first or pick a smaller size."); }
+    render(); return; }
+  if(p.kind==="port"){ document.querySelectorAll(".drop-ok,.drop-bad").forEach(x=>x.classList.remove("drop-ok","drop-bad"));
+    const r=rack(); if(commit && p.tgt && r){ const a=devById(r,p.d), b=devById(r,p.tgt.d); if(a&&b&&movePortEnd(r,a,p.p,b,p.tgt.p)) return; }
+    render(); return; }
+  if(p.kind==="pin"){ const s=site(), pin=s?.pins.find(x=>x.id===p.id); if(commit&&pin&&p.fx!=null){ pin.x=p.fx; pin.y=p.fy; sel={dev:null,port:null,slot:null,pin:pin.id}; saveSite(); return; } render(); return; }
+  const r=rack();
+  if(commit && p.u!=null && r){
+    if(p.kind==="dev"){ const d=devById(r,p.id); if(fits(r,p.u,p.h,p.id)){ if(d.u!==p.u){ d.u=p.u; saveRack(); toast(`${d.name} moved to U${p.u}${d.h>1?"–"+(p.u+d.h-1):""}.`); return; } }
+      else toast("That space is taken. Drop it on a free gap."); }
+    else { if(fits(r,p.u,p.h)){ const d=newDevice(r,p.type,p.u); r.devices.push(d); sel={dev:d.id,port:null,slot:null,pin:null}; saveRack(); afterAdd(d); return; } toast("That space is taken. Drop it on a free gap."); }
+  }
+  render();
+}
+document.addEventListener("pointerdown",e=>{
+  if(readOnly||e.button>0||pd) return;
+  const devEl=e.target.closest(".dev"), lib=e.target.closest("#lib button[data-type]"), pinEl=e.target.closest(".pin");
+  const rzEl=e.target.closest("[data-rz]");
+  if(rzEl){ const d=devById(rack(),rzEl.dataset.rz); if(!d) return; pd={kind:"resize",id:d.id,h:d.h,top:d.u+d.h-1,el:rzEl.closest(".dev"),x:e.clientX,y:e.clientY,started:false,touch:false,u:d.u,scroll:0}; e.stopPropagation(); return; }
+  const portEl=e.target.closest("#rbody .port");
+  if(portEl && view==="rack"){ const d=devById(rack(),portEl.dataset.d); if(!d) return; pd={kind:"port",d:d.id,p:+portEl.dataset.p,el:portEl}; }
+  else if(pinEl){ if(placeMode) return; const s=site(); const p=s?.pins.find(x=>x.id===pinEl.dataset.pin); if(!p) return; pd={kind:"pin",id:p.id,el:pinEl}; }
+  else if(devEl && !e.target.closest(".port")){ const d=devById(rack(),devEl.dataset.dev); if(!d) return; pd={kind:"dev",id:d.id,h:d.h,el:devEl}; }
+  else if(lib && rack()){ pd={kind:"lib",type:lib.dataset.type,h:TYPES[lib.dataset.type].h}; }
+  else return;
+  Object.assign(pd,{x:e.clientX,y:e.clientY,started:false,touch:e.pointerType==="touch",u:null,scroll:0});
+  if(pd.touch){ const ev={clientX:e.clientX,clientY:e.clientY}; pd.timer=setTimeout(()=>{ if(pd&&!pd.started){ startDrag(); moveDrag(ev); navigator.vibrate?.(15); } },300); }
+});
+document.addEventListener("pointermove",e=>{
+  if(!pd) return; const dist=Math.hypot(e.clientX-pd.x,e.clientY-pd.y);
+  if(!pd.started){ if(pd.touch){ if(dist>8){ clearTimeout(pd.timer); pd=null; } return; } if(dist<5) return; startDrag(); }
+  moveDrag(e);
+});
+document.addEventListener("touchmove",e=>{ if(pd&&pd.started) e.preventDefault(); },{passive:false});
+document.addEventListener("contextmenu",e=>{ if(pd) e.preventDefault(); });
+document.addEventListener("pointerup",()=>endDrag(true));
+document.addEventListener("pointercancel",()=>endDrag(false));
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){ if(pd){ endDrag(false); return; } if(placeMode){ placeMode=null; renderSite(); return; } if(menuOpen){ menuOpen=false; renderSide(); return; } }
+  if(!["ArrowUp","ArrowDown"].includes(e.key) || e.target.closest("input,select,textarea") || readOnly) return;
+  const r=rack(), d=devById(r,sel.dev); if(!d||sel.port!=null||view!=="rack") return;
+  e.preventDefault(); nudge(d, e.key==="ArrowUp"?1:-1);
+});
+
+/* ---------- sample data (standalone copies start empty) ---------- */
+const SAMPLE_PLAN=`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000"><rect width="1600" height="1000" fill="#ffffff"/><rect x="40" y="40" width="420" height="300" fill="#fafbfc" stroke="#2b3440" stroke-width="6"/><text x="250.0" y="190.0" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#6b7785" text-anchor="middle">Reception</text><rect x="460" y="40" width="700" height="560" fill="#fafbfc" stroke="#2b3440" stroke-width="6"/><text x="810.0" y="320.0" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#6b7785" text-anchor="middle">Open office</text><rect x="1160" y="40" width="400" height="260" fill="#eef3fb" stroke="#2b3440" stroke-width="6"/><text x="1360.0" y="170.0" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#6b7785" text-anchor="middle">Server room</text><rect x="1160" y="300" width="400" height="300" fill="#fafbfc" stroke="#2b3440" stroke-width="6"/><text x="1360.0" y="450.0" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#6b7785" text-anchor="middle">Meeting room</text><rect x="40" y="340" width="210" height="260" fill="#fafbfc" stroke="#2b3440" stroke-width="6"/><text x="145.0" y="470.0" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#6b7785" text-anchor="middle">Office 101</text><rect x="250" y="340" width="210" height="260" fill="#fafbfc" stroke="#2b3440" stroke-width="6"/><text x="355.0" y="470.0" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#6b7785" text-anchor="middle">Office 102</text><rect x="40" y="600" width="420" height="360" fill="#fafbfc" stroke="#2b3440" stroke-width="6"/><text x="250.0" y="780.0" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#6b7785" text-anchor="middle">Kitchen</text><rect x="460" y="600" width="350" height="360" fill="#fafbfc" stroke="#2b3440" stroke-width="6"/><text x="635.0" y="780.0" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#6b7785" text-anchor="middle">Office 103</text><rect x="810" y="600" width="350" height="360" fill="#fafbfc" stroke="#2b3440" stroke-width="6"/><text x="985.0" y="780.0" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#6b7785" text-anchor="middle">Office 104</text><rect x="1160" y="600" width="400" height="360" fill="#fafbfc" stroke="#2b3440" stroke-width="6"/><text x="1360.0" y="780.0" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#6b7785" text-anchor="middle">Storage</text><rect x="200" y="334" width="60" height="12" fill="#ffffff"/><rect x="1300" y="294" width="70" height="12" fill="#ffffff"/><rect x="1154" y="150" width="12" height="70" fill="#ffffff"/><rect x="120" y="594" width="70" height="12" fill="#ffffff"/><rect x="600" y="594" width="70" height="12" fill="#ffffff"/><rect x="940" y="594" width="70" height="12" fill="#ffffff"/><rect x="1300" y="594" width="70" height="12" fill="#ffffff"/><rect x="320" y="334" width="60" height="12" fill="#ffffff"/><rect x="454" y="120" width="12" height="70" fill="#ffffff"/><rect x="40" y="40" width="1520" height="920" fill="none" stroke="#2b3440" stroke-width="10"/><text x="1540" y="990" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#9aa4ae" text-anchor="end">SAMPLE FLOOR PLAN · GROUND FLOOR</text></svg>`;
+async function loadSample(){
+  const R={id:uid(),siteId:"",name:"Example Rack (sample)",location:"Server room",units:42,notes:"Sample rack. Delete it once you've added your own.",devices:[]};
+  const add=(type,u,model,ip)=>{ const d=newDevice(R,type,u); d.model=model; d.ip=ip||""; R.devices.push(d); return d; };
+  const fpp=add("fiber",42,"Fiber patch panel · ISP"), rt=add("router",40,"Edge router","10.0.0.1"), fw=add("firewall",39,"Firewall","10.0.0.2"),
+    pp=add("patch",38,"Cat6 patch panel · Floor 1"), sw=add("switch48",37,"Access switch 48","10.0.0.10"); add("manager",36,"Cable manager");
+  const srv=add("server",30,"Hypervisor host","10.0.10.11"), nas=add("nas",26,"Backup NAS","10.0.10.20"), ups=add("ups",1,"UPS 3000VA","10.0.0.30");
+  const L=(a,i,b,j,cable,color,len)=>{ linkPorts(R,a,i,b,j); Object.assign(a.ports[i],{cable,color,len}); Object.assign(b.ports[j],{cable,color,len}); };
+  Object.assign(fpp.ports[0],{ext:"ISP demarc",label:"WAN",cable:"F-001",color:"aqua"});
+  L(fpp,1,rt,4,"F-002","aqua","1 m"); L(rt,0,fw,0,"C-010","red","0.5 m"); L(fw,1,sw,48,"C-011","yellow","1 m");
+  for(let i=0;i<6;i++) L(pp,i,sw,i,"C-1"+pad2(i),"blue","0.3 m");
+  L(sw,40,srv,0,"C-200","green","2 m"); L(sw,41,srv,1,"C-201","green","2 m"); L(sw,42,nas,0,"C-210","green","2 m"); L(sw,46,ups,0,"C-220","grey","3 m");
+  Object.assign(srv.ports[4],{label:"iDRAC",ip:"10.0.10.111"}); sw.ports[0].vlan="20";
+  const S2={id:uid(),name:"Head Office (sample)",address:"123 Example Street\nSample City",contact:"",notes:"Sample site. Replace with your own.",floors:[{id:uid(),name:"Ground floor",plan:null}],pins:[]};
+  R.siteId=S2.id; const fl=S2.floors[0].id;
+  const J=(label,x,y,room,port,endpoint,eip)=>S2.pins.push({id:uid(),kind:"jack",floor:fl,x:x/1600,y:y/1000,label,room,link:port==null?null:{r:R.id,d:pp.id,p:port},cable:"W-"+label,endpoint:endpoint||"",eip:eip||"",mac:"",note:""});
+  J("1-01",120,60,"Reception",0,"Reception PC","10.0.20.21"); J("1-02",380,60,"Reception",1,"Reception phone","10.0.30.11"); J("1-03",480,200,"Open office",2,"Desk 3 PC","10.0.20.33");
+  J("1-04",700,580,"Open office",3,"Printer","10.0.20.50"); J("1-05",60,470,"Office 101",4); J("1-06",1140,450,"Meeting room",5,"Meeting room display","10.0.20.60"); J("1-07",620,940,"Office 103",null);
+  S2.pins.push({id:uid(),kind:"rack",floor:fl,x:1360/1600,y:170/1000,label:"",room:"Server room",rack:R.id});
+  S.sites[S2.id]=S2; S.racks[R.id]=R; curSite=S2.id; curFloor=fl; curId=R.id; view="site";
+  try{ S2.floors[0].plan=await storePlanImage(S2,S2.floors[0],new Blob([SAMPLE_PLAN],{type:"image/svg+xml"}),"image/svg+xml",1600,1000); }catch(e){}
+  persist("sites",S2.id); persist("racks",R.id); render(); toast("Sample data loaded. Delete the sample site when you're ready to add your own.");
+}
+
+/* ---------- custom device setup ---------- */
+function afterAdd(d){ if(d.type==="custom") openCustomSetup(d.id,true); }
+function openCustomSetup(id,isNew){
+  const r=rack(), d=devById(r,id); if(!d) return;
+  const k={rj45:0,sfp:0,lc:0}; d.ports.forEach(p=>k[p.kind]++);
+  $("#modalRoot").innerHTML=`<div class="veil" id="veil"><div class="modal" role="dialog" aria-label="Custom device">
+   <h2>${isNew?"Add a custom device":"Custom device setup"}</h2><p class="hint">For anything not in the library: a KVM, media converter, NVR, phone system, camera recorder…</p>
+   <div class="fields" id="cxf">
+     <label>Name<input id="cx_name" value="${esc(d.name)}"></label>
+     <label>What is it<input id="cx_kind" value="${esc(d.kind||"")}" placeholder="e.g. KVM switch"></label>
+     <label>Model<input id="cx_model" value="${esc(d.model||"")}" placeholder="optional"></label>
+     <label>Height (U)<input id="cx_h" type="number" min="1" max="20" value="${d.h}"></label>
+     <label>RJ45 ports<input id="cx_rj45" type="number" min="0" max="200" value="${k.rj45}"></label>
+     <label>SFP ports<input id="cx_sfp" type="number" min="0" max="200" value="${k.sfp}"></label>
+     <label>Fiber LC ports<input id="cx_lc" type="number" min="0" max="200" value="${k.lc}"></label>
+     <label>Management IP<input id="cx_ip" class="mono" value="${esc(d.ip||"")}" placeholder="optional"></label>
+   </div>
+   <div class="cx-preview" id="cxPrev"></div>
+   <div class="btnrow" style="justify-content:flex-end"><button class="btn" id="cxCancel">${isNew?"Cancel":"Close"}</button><button class="btn primary" id="cxSave">${isNew?"Add to rack":"Save"}</button></div></div></div>`;
+  const prev=()=>{ const h=Math.max(1,Math.min(20,parseInt($("#cx_h").value)||1)), n=["rj45","sfp","lc"].reduce((a,x)=>a+Math.max(0,parseInt($("#cx_"+x).value)||0),0);
+    $("#cxPrev").textContent=`${h}U · ${n} port${n===1?"":"s"}${n?` · laid out in ${n>12?(n/2>24&&h>=2?4:2):1} row${n>12?"s":""}`:""}`; };
+  $("#cxf").addEventListener("input",prev); prev();
+  $("#cxCancel").onclick=()=>{ if(isNew){ r.devices=r.devices.filter(x=>x.id!==id); sel={dev:null,port:null,slot:null,pin:null}; saveRack(); } closeModal(); };
+  $("#cxSave").onclick=()=>{
+    const h=Math.max(1,Math.min(20,parseInt($("#cx_h").value)||1));
+    let u=d.u; if(!fits(r,u,h,d.id)){ const top=d.u+d.h-1; if(fits(r,top-h+1,h,d.id)) u=top-h+1; else { const f=(()=>{ for(let t=r.units;t>=h;t--){ const uu=t-h+1; if(fits(r,uu,h,d.id)) return uu; } return null; })(); if(f==null) return toast(`There's no ${h}U gap in this rack.`); u=f; } }
+    d.u=u; d.h=h; d.name=$("#cx_name").value.trim()||d.name; d.kind=$("#cx_kind").value.trim(); d.model=$("#cx_model").value.trim(); d.ip=$("#cx_ip").value.trim();
+    setPortCounts(r,d,{rj45:Math.max(0,parseInt($("#cx_rj45").value)||0),sfp:Math.max(0,parseInt($("#cx_sfp").value)||0),lc:Math.max(0,parseInt($("#cx_lc").value)||0)});
+    closeModal(); sel={dev:d.id,port:null,slot:null,pin:null}; saveRack(); toast(`${d.name} ${isNew?"added":"updated"} at U${d.u}${d.h>1?"–"+(d.u+d.h-1):""}.`); };
+  setTimeout(()=>$("#cx_kind")?.focus(),0);
+}
+
+/* ---------- import ---------- */
+function openImport(){
+  $("#modalRoot").innerHTML=`<div class="veil" id="veil"><div class="modal" role="dialog" aria-label="Import">
+   <h2>Import</h2><p class="hint">Load a RackGrid backup (.json) to add its sites and racks, or a device list (.csv) to add devices to <b>${esc(rack()?.name||"a new rack")}</b>.</p>
+   <div class="fields"><label class="full">File<input type="file" id="impFile" accept=".json,.csv,.txt"></label></div>
+   <p class="sech">Or paste</p><textarea id="impText" placeholder="Paste JSON or CSV here"></textarea>
+   <p class="sech" style="margin-top:12px">CSV columns</p>
+   <pre>name,type,u,height,ip,model,serial,rj45,sfp,lc
+SW01,switch,40,1,10.0.0.2,Cisco C9200-24T,FOC1234,24,4,0
+SRV01,server,30,2,10.0.10.11,Dell R650,,4,0,0</pre>
+   <p class="hint">Type is one of: ${Object.keys(TYPES).join(", ")}. Leave <b>u</b> blank to use the first free slot.</p>
+   <div class="btnrow" style="justify-content:flex-end"><button class="btn" id="impCancel">Cancel</button><button class="btn primary" id="impGo">Import</button></div></div></div>`;
+  $("#impCancel").onclick=closeModal; $("#veil").onclick=e=>{ if(e.target.id==="veil") closeModal(); };
+  $("#impGo").onclick=()=>doImport($("#impText").value);
+}
+function closeModal(){ $("#modalRoot").innerHTML=""; }
+function readImportFile(inp){ const f=inp.files[0]; if(!f) return; const fr=new FileReader(); fr.onload=()=>{ $("#impText").value=fr.result; }; fr.readAsText(f); }
+function parseCSV(text){ const rows=[]; let row=[],cell="",qd=false; for(let i=0;i<text.length;i++){ const c=text[i];
+  if(qd){ if(c==='"'){ if(text[i+1]==='"'){cell+='"';i++;} else qd=false; } else cell+=c; }
+  else if(c==='"') qd=true; else if(c===","){ row.push(cell); cell=""; } else if(c==="\n"||c==="\r"){ if(c==="\r"&&text[i+1]==="\n") i++; row.push(cell); rows.push(row); row=[]; cell=""; } else cell+=c; }
+  if(cell||row.length){ row.push(cell); rows.push(row); } return rows.filter(r=>r.some(x=>x.trim())); }
+function normRack(r){ const id=uid(); const map={};
+  const out={id,siteId:r.siteId||"",name:String(r.name||"Imported rack"),location:String(r.location||""),units:Math.max(1,Math.min(60,+r.units||42)),notes:String(r.notes||""),devices:[]};
+  for(const d of (r.devices||[])){ const nid=uid(); map[d.id]=nid; out.devices.push({id:nid,name:String(d.name||"DEV"),type:TYPES[d.type]?d.type:"blank",u:+d.u||1,h:Math.max(1,+d.h||1),model:d.model||"",serial:d.serial||"",ip:d.ip||"",notes:d.notes||"",ports:(d.ports||[]).map((p,i)=>({n:+p.n||i+1,kind:["rj45","sfp","lc"].includes(p.kind)?p.kind:"rj45",label:p.label||"",ip:p.ip||"",vlan:p.vlan||"",mac:p.mac||"",link:p.link||null,ext:p.ext||"",cable:p.cable||"",color:p.color||"",len:p.len||"",note:p.note||""}))}); }
+  for(const d of out.devices) for(const p of d.ports) if(p.link) p.link = map[p.link.d] ? {d:map[p.link.d],p:+p.link.p} : null;
+  return {rack:out,map}; }
+function doImport(text){
+  text=(text||"").trim(); if(!text) return toast("Choose a file or paste something to import.");
+  if(text[0]==="{"||text[0]==="["){
+    let data; try{ data=JSON.parse(text); }catch(e){ return toast("That JSON couldn't be read. Check it's a RackGrid backup."); }
+    const rlist = Array.isArray(data) ? data : data.racks ? (Array.isArray(data.racks)?data.racks:Object.values(data.racks)) : (data.devices?[data]:[]);
+    const slist = Array.isArray(data.sites) ? data.sites : data.sites ? Object.values(data.sites) : [];
+    const rackMap={}, devMaps={}, siteMap={};
+    for(const s of slist){ if(!s||typeof s!=="object") continue; const ns=clone(s); ns.id=uid(); siteMap[s.id]=ns.id; ns.name=ns.name||"Imported site"; ns.floors=(ns.floors||[]).map(f=>({id:f.id||uid(),name:f.name||"Floor",plan:f.plan&&f.plan.asset&&IN_CLAUDE?f.plan:null,_img:f.plan?.image&&data.images?.[f.plan.image]?{data:data.images[f.plan.image],w:f.plan.w,h:f.plan.h,rot:f.plan.rot,crop:f.plan.crop}:null})); if(!ns.floors.length) ns.floors=[{id:uid(),name:"Ground floor",plan:null}]; ns.pins=ns.pins||[]; S.sites[ns.id]=ns; }
+    let added=0; for(const r of rlist){ if(!r||typeof r!=="object") continue; const {rack:nr,map}=normRack(r); rackMap[r.id]=nr.id; devMaps[r.id]=map;
+      nr.siteId = siteMap[r.siteId] || (S.sites[r.siteId]?r.siteId:"") || curSite || ""; S.racks[nr.id]=nr; persist("racks",nr.id); curId=nr.id; added++; }
+    for(const s of slist){ const ns=S.sites[siteMap[s.id]]; if(!ns) continue; for(const p of ns.pins){ p.id=uid(); if(p.link){ const nr=rackMap[p.link.r], nd=devMaps[p.link.r]?.[p.link.d]; p.link = nr&&nd ? {r:nr,d:nd,p:p.link.p} : null; } if(p.rack) p.rack=rackMap[p.rack]||""; } persist("sites",ns.id); }
+    if(slist.length){ curSite=siteMap[slist[0].id]; curFloor=null; }
+    // restore floor plan images included in the backup
+    (async()=>{ let ok=0; for(const id of Object.values(siteMap)){ const ns=S.sites[id]; if(!ns) continue; let changed=false;
+      for(const f of ns.floors){ const im=f._img; delete f._img; if(!im) continue; changed=true;
+        try{ const blob=await (await fetch(im.data)).blob(); const pl=await storePlanImage(ns,f,blob,blob.type||"image/png",im.w,im.h); f.plan={...pl,rot:im.rot||0,...(im.crop?{crop:im.crop}:{})}; ok++; }catch(e){} }
+      if(changed){ persist("sites",id); } }
+      if(ok){ render(); toast(`Restored ${ok} floor plan${ok===1?"":"s"}.`); } })();
+    closeModal(); sel={dev:null,port:null,slot:null,pin:null}; pickDefaults(); render();
+    return toast(`Imported ${slist.length?`${slist.length} site${slist.length===1?"":"s"} and `:""}${added} rack${added===1?"":"s"}.`);
+  }
+  const rows=parseCSV(text); if(rows.length<2) return toast("The CSV needs a header row and at least one device.");
+  const head=rows[0].map(h=>h.trim().toLowerCase()); const col=n=>head.indexOf(n);
+  if(col("name")<0) return toast("The CSV needs a 'name' column.");
+  let r=rack(); if(!r){ if(!site()) createSite(); createRack(); r=rack(); }
+  let added=0, skipped=[];
+  for(const row of rows.slice(1)){ const g=k=>col(k)>=0?(row[col(k)]||"").trim():"";
+    const type=TYPES[g("type").toLowerCase()]?g("type").toLowerCase():"server"; const t=TYPES[type];
+    const h=Math.max(1,parseInt(g("height"))||t.h); let u=parseInt(g("u"));
+    if(!u||!fits(r,u,h)) u=firstFree(r,h); if(u==null){ skipped.push(g("name")); continue; }
+    const spec=(g("rj45")||g("sfp")||g("lc")) ? [["rj45",+g("rj45")||0],["sfp",+g("sfp")||0],["lc",+g("lc")||0]] : t.ports;
+    r.devices.push({id:uid(),name:g("name")||nextName(r,type),type,u,h,model:g("model"),serial:g("serial"),ip:g("ip"),notes:g("notes"),ports:makePorts(spec)}); added++; }
+  closeModal(); view="rack"; saveRack(); toast(`Added ${added} device${added===1?"":"s"}${skipped.length?`. No room for: ${skipped.join(", ")}`:""}.`);
+}
+
+/* ---------- export ---------- */
+async function offer(filename,data){
+  let dl=null; try{ dl = window.claude?.use ? await window.claude.use("downloads") : null; }catch(e){}
+  if(dl){ try{ await dl.save({filename,data}); toast("Saved "+filename+"."); return; }
+    catch(e){ if(e?.code==="declined") return; if(e?.code==="rate_limited") return toast("A save is already open. Finish it first."); } }
+  if(!IN_CLAUDE){ const type=filename.endsWith(".csv")?"text/csv":"application/json"; const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([data],{type})); a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000); toast("Downloaded "+filename+"."); return; }
+  $("#modalRoot").innerHTML=`<div class="veil" id="veil"><div class="modal"><h2>${esc(filename)}</h2><p class="hint">Downloads aren't available here. Copy this text and save it as <b>${esc(filename)}</b>.</p><textarea id="expText" readonly>${esc(data)}</textarea><div class="btnrow" style="justify-content:flex-end;margin-top:10px"><button class="btn" id="cp">Copy</button><button class="btn primary" id="cl">Done</button></div></div></div>`;
+  $("#cl").onclick=closeModal; $("#cp").onclick=()=>{ const ta=$("#expText"); if(navigator.clipboard) navigator.clipboard.writeText(data).then(()=>toast("Copied."),()=>{ ta.select(); toast("Press Ctrl+C to copy."); }); else ta.select(); };
+}
+async function exportJson(){ if(!Object.keys(S.sites).length && !Object.keys(S.racks).length) return toast("There's nothing to back up yet.");
+  toast("Preparing backup…");
+  const sites=clone(Object.values(S.sites)), images={}; let n=0, missed=0;
+  for(const s of sites) for(const f of s.floors||[]) if(f.plan){
+    try{ const b=await planBlob(f.plan); const ref="img"+(++n); images[ref]=await blobToDataURL(b); f.plan={w:f.plan.w,h:f.plan.h,rot:f.plan.rot||0,crop:f.plan.crop||null,image:ref}; }
+    catch(e){ missed++; } }
+  await offer(`rackgrid-backup-${new Date().toISOString().slice(0,10)}.json`, JSON.stringify({app:"rackgrid",version:3,exported:new Date().toISOString(),sites,racks:Object.values(S.racks),images}));
+  if(missed) toast(`${missed} floor plan image${missed===1?"":"s"} couldn't be included in the backup.`); }
+function exportCsv(){ const r=rack(); const s=site(); if(!r&&!s) return toast("Select a site or rack first.");
+  const c=v=>`"${String(v??"").replace(/"/g,'""')}"`; const lines=[["section","from","to","cable_id","color","length","ip","vlan","mac"].join(",")];
+  if(r){ for(const x of cableRows(r)) lines.push(["cable",x.a,x.b,x.cable,x.color,x.len,"","",""].map(c).join(","));
+    for(const x of ipRows(r)) lines.push(["ip",x.what,"","","","",x.ip,x.vlan,x.mac].map(c).join(",")); }
+  if(s) for(const p of (s.pins||[]).filter(p=>p.kind==="jack")){ const t=trace(p); lines.push(["wall_port",`Wall port ${p.label} · ${floorName(s,p.floor)}${p.room?" · "+p.room:""}`,t?`${portName(t.d,t.pi)}${t.o?" → "+portName(t.o,t.oi):""}`:"",p.cable||"","","",p.eip||"",t?.op?.vlan||"",p.mac||""].map(c).join(",")); }
+  offer(`${(r?.name||s.name).replace(/[^\w-]+/g,"_")}-cables-ips.csv`, lines.join("\n")); }
+
+let tt; function toast(m){ let el=$("#toast"); if(!el){ el=document.createElement("div"); el.id="toast"; el.className="toast"; el.setAttribute("role","status"); document.body.appendChild(el); } el.textContent=m; el.hidden=false; clearTimeout(tt); tt=setTimeout(()=>el.hidden=true,3400); }
+
+render(); boot();
+})();
+</script>
+</body>
+</html>
