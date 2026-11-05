@@ -437,6 +437,14 @@ function setPortCounts(r,d,want){
   for(const x of pinsAll()) if(x.p.link?.r===r.id && x.p.link.d===d.id && x.p.link.p!=null){ const m=map[x.p.link.p]; x.p.link.p = m==null?null:m; persist("sites",x.s.id); }
   d.ports=np;
 }
+/* cable length check: recorded length vs. the run between the two devices */
+function parseLen(v){ const m=String(v||"").trim().toLowerCase().replace(",",".").match(/^([\d.]+)\s*(m|meters?|metres?|cm|mm|ft|feet|foot|'|in|inch|inches|")?$/); if(!m) return null;
+  const n=parseFloat(m[1]); if(!isFinite(n)) return null; const u=m[2]||"m";
+  return u==="cm"?n/100 : u==="mm"?n/1000 : (u==="ft"||u==="feet"||u==="foot"||u==="'")?n*.3048 : (u.startsWith("in")||u==='"')?n*.0254 : n; }
+function runLen(a,b){ const du=Math.abs((a.u+(a.h-1)/2)-(b.u+(b.h-1)/2)); return du*.04445 + (du<=2 ? .15 : .5); }
+function shortCable(r,d,p){ const pt=d.ports[p]; if(!pt?.link) return null; const o=devById(r,pt.link.d), have=parseLen(pt.len); if(!o||have==null) return null;
+  const need=runLen(d,o); return have+.005<need ? {have,need,o,op:pt.link.p} : null; }
+const fmtM = m => m<1 ? Math.round(m*100)+" cm" : m.toFixed(1).replace(/\.0$/,"")+" m";
 function portName(d,p){ const pt=d.ports[p]; if(!pt) return d.name+" · ?"; return `${d.name} · ${pt.kind==="sfp"?"SFP ":""}${pt.n}${pt.label?` (${pt.label})`:""}`; }
 
 function unlinkPort(r,d,p){ const pt=d.ports[p]; if(pt.link){ const o=devById(r,pt.link.d); if(o&&o.ports[pt.link.p]){ const op=o.ports[pt.link.p]; if(op.link&&op.link.d===d.id&&op.link.p===p) op.link=null; } pt.link=null; } }
@@ -706,9 +714,9 @@ function drawCables(){
     const A=endOf(a), B=endOf(b), lx=gut+(lane++%14)*6;
     const path=roundPath([[A.x,A.py],[A.x,A.seam],[lx,A.seam],[lx,B.seam],[B.x,B.seam],[B.x,B.py]],6);
     const hot = !!selKey && (ka===selKey||kb===selKey), lit = !selKey && sel.dev && (d.id===sel.dev||pt.link.d===sel.dev);
-    const c=COLORS[pt.color]||pt.color||"var(--accent)";
-    if(hot){ top+=`<path class="casing" d="${path}"/><path class="hot" stroke="${c}" d="${path}"/><circle class="end" cx="${A.x}" cy="${A.py}" r="3" fill="${c}"/><circle class="end" cx="${B.x}" cy="${B.py}" r="3" fill="${c}"/>`; }
-    else low+=`<path class="${lit?"lit":any?"cold":""}" stroke="${c}" d="${path}"/>`;
+    const c=COLORS[pt.color]||pt.color||"var(--accent)", sh=shortCable(r,d,i)?' stroke-dasharray="7 5"':"";
+    if(hot){ top+=`<path class="casing" d="${path}"/><path class="hot" stroke="${c}"${sh} d="${path}"/><circle class="end" cx="${A.x}" cy="${A.py}" r="3" fill="${c}"/><circle class="end" cx="${B.x}" cy="${B.py}" r="3" fill="${c}"/>`; }
+    else low+=`<path class="${lit?"lit":any?"cold":""}" stroke="${c}"${sh} d="${path}"/>`;
   });
   for(const el of [svg,under]){ el.setAttribute("width",box.width+120); el.setAttribute("height",box.height); }
   under.innerHTML=low; svg.innerHTML=top;
@@ -719,7 +727,7 @@ function cableRows(r){
   const rows=[], seen=new Set(), jm=jackMap();
   for(const d of r.devices) d.ports.forEach((pt,i)=>{
     if(pt.link){ const key=[`${d.id}:${i}`,`${pt.link.d}:${pt.link.p}`].sort().join("|"); if(!seen.has(key)){ seen.add(key);
-      const o=devById(r,pt.link.d); rows.push({a:portName(d,i),b:o?portName(o,pt.link.p):"?",cable:pt.cable,color:pt.color,len:pt.len,d:d.id,p:i}); } }
+      const o=devById(r,pt.link.d); rows.push({short:!!shortCable(r,d,i),a:portName(d,i),b:o?portName(o,pt.link.p):"?",cable:pt.cable,color:pt.color,len:pt.len,d:d.id,p:i}); } }
     else if(pt.ext) rows.push({a:portName(d,i),b:pt.ext+" (outside rack)",cable:pt.cable,color:pt.color,len:pt.len,d:d.id,p:i});
     const jk=jm[`${r.id}:${d.id}:${i}`]; if(jk) rows.push({a:portName(d,i),b:`Wall port ${jk.p.label} · ${floorName(jk.s,jk.p.floor)}${jk.p.room?" · "+jk.p.room:""}`,cable:jk.p.cable||"",color:"",len:"",d:d.id,p:i,pin:jk.p.id});
   });
@@ -742,7 +750,7 @@ function renderTable(){
   st.innerHTML=`<div style="max-width:980px;margin:0 auto">
    <div class="tblhead"><h2>Cables</h2><span class="chip">${cr.length} shown</span></div>
    <div class="tbl"><table><thead><tr><th>From</th><th>To</th><th>Cable ID</th><th>Color</th><th>Length</th></tr></thead><tbody>
-   ${cr.length?cr.map(x=>`<tr class="click" ${x.pin?`data-pinrow="${x.pin}"`:`data-d="${x.d}" data-p="${x.p}"`}><td>${esc(x.a)}</td><td>${esc(x.b)}</td><td class="mono">${esc(x.cable)}</td><td>${x.color?`<span class="sw" style="background:${COLORS[x.color]||x.color}"></span> ${esc(x.color)}`:""}</td><td class="mono">${esc(x.len)}</td></tr>`).join(""):`<tr><td colspan="5" style="color:var(--muted)">No cables recorded yet. Click a port in the rack to connect it.</td></tr>`}
+   ${cr.length?cr.map(x=>`<tr class="click" ${x.pin?`data-pinrow="${x.pin}"`:`data-d="${x.d}" data-p="${x.p}"`}><td>${esc(x.a)}</td><td>${esc(x.b)}</td><td class="mono">${esc(x.cable)}</td><td>${x.color?`<span class="sw" style="background:${COLORS[x.color]||x.color}"></span> ${esc(x.color)}`:""}</td><td class="mono">${esc(x.len)}${x.short?' <span class="chip warn">Too short?</span>':""}</td></tr>`).join(""):`<tr><td colspan="5" style="color:var(--muted)">No cables recorded yet. Click a port in the rack to connect it.</td></tr>`}
    </tbody></table></div>
    <div class="tblhead"><h2>IP addresses</h2>${dupN?`<span class="chip warn">${dupN} duplicate entries at this site</span>`:`<span class="chip ok">No duplicates</span>`}</div>
    <div class="tbl"><table><thead><tr><th>IP</th><th>Assigned to</th><th>VLAN</th><th>MAC</th><th></th></tr></thead><tbody>
@@ -770,6 +778,7 @@ function renderInsp(){
   const used=r.devices.reduce((a,x)=>a+x.h,0), links=cableRows(r).filter(x=>!x.pin).length, ips=ipRows(r).length, dups=dupSet().size;
   el.innerHTML=`${roNote()}<h2>${esc(r.name)}</h2><p class="sub">Rack overview</p>
    <div class="stats"><div class="stat"><b>${used}/${r.units}</b><span>Units used</span></div><div class="stat"><b>${r.devices.length}</b><span>Devices</span></div><div class="stat"><b>${links}</b><span>Cables</span></div><div class="stat"><b>${ips}</b><span>IP addresses</span></div></div>
+   ${(()=>{ const n=r.devices.reduce((a,d)=>a+d.ports.filter((pt,i)=>pt.link&&d.id<pt.link.d&&shortCable(r,d,i)).length,0); return n?`<div class="notice">${n} cable${n===1?" looks":"s look"} too short for where the devices sit now. They're dashed in the rack and flagged in Cables &amp; IPs.</div>`:""; })()}
    ${r.devices.filter(battDue).length?`<div class="notice">Battery replacement is due on: ${r.devices.filter(battDue).map(x=>esc(x.name)).join(", ")}.</div>`:""}
    ${dups?`<div class="notice">${dups} IP address${dups>1?"es are":" is"} assigned more than once at this site. Open Cables &amp; IPs to see where.</div>`:""}
    <div class="fields" data-scope="rack">${fld("Rack name","name",r.name,{full:true})}
@@ -815,9 +824,10 @@ function renderPortInsp(r,d,p){
    ${chosenDev==="__ext"?fld("Destination","ext",pt.ext,{full:true,ph:"e.g. ISP demarc, another rack"}):""}
    ${portSel}
    ${fld("Cable ID","cable",pt.cable,{mono:true,ph:"C-0142"})}${fld("Color","color",pt.color,{select:[["","—"],...Object.keys(COLORS).map(c=>[c,c[0].toUpperCase()+c.slice(1)])]})}
-   ${fld("Length","len",pt.len,{ph:"2 m"})}
+   ${fld("Length","len",pt.len,{ph:"2 m",bad:!!shortCable(r,d,p)})}
    ${(pt.link||pt.ext)?fld("Move this end to","moveto","",{full:true,select:[["","Choose a free port…"],...r.devices.flatMap(x=>x.ports.map((op,i)=>(!op.link&&!op.ext&&!(x.id===d.id&&i===p))?[x.id+":"+i,portName(x,i)]:null).filter(Boolean))]}):""}
    ${fld("Notes","note",pt.note,{area:true})}</div>
+   ${(()=>{ const sc=shortCable(r,d,p); return sc?`<div class="notice">This cable is recorded as ${fmtM(sc.have)}, but ${esc(d.name)} and ${esc(sc.o.name)} are now about ${fmtM(sc.need)} apart. Update the length, or move the devices closer.</div>`:""; })()}
    ${(pt.link||pt.ext)?`<p class="hint">Tip: drag this port onto another port in the rack to move the cable. The other end stays where it is.</p>`:`<p class="hint">Tip: drag this port onto another free port to connect them.</p>`}
    ${pt.link?`<div class="btnrow"><button class="btn" data-goto="${pt.link.d}:${pt.link.p}">Go to other end</button><button class="btn danger" data-act="unlink" ${readOnly?"disabled":""}>Disconnect</button></div>`:pt.ext?`<div class="btnrow"><button class="btn danger" data-act="unlink" ${readOnly?"disabled":""}>Disconnect</button></div>`:""}`;
 }
@@ -1223,7 +1233,8 @@ function endDrag(commit){
   if(p.kind==="pin"){ const s=site(), pin=s?.pins.find(x=>x.id===p.id); if(commit&&pin&&p.fx!=null){ pin.x=p.fx; pin.y=p.fy; sel={dev:null,port:null,slot:null,pin:pin.id}; saveSite(); toast(`${pin.kind==="rack"?"Rack marker":"Wall port "+pin.label} moved.`); return; } render(); return; }
   const r=rack();
   if(commit && p.u!=null && r){
-    if(p.kind==="dev"){ const d=devById(r,p.id); if(fits(r,p.u,p.h,p.id)){ if(d.u!==p.u){ d.u=p.u; saveRack(); toast(`${d.name} moved to U${p.u}${d.h>1?"–"+(p.u+d.h-1):""}.`); return; } }
+    if(p.kind==="dev"){ const d=devById(r,p.id); if(fits(r,p.u,p.h,p.id)){ if(d.u!==p.u){ d.u=p.u; saveRack(); const shortN=d.ports.filter((_,i)=>shortCable(r,d,i)).length;
+        toast(`${d.name} moved to U${p.u}${d.h>1?"–"+(p.u+d.h-1):""}.${shortN?` ${shortN} cable${shortN===1?" looks":"s look"} too short for the new spot (shown dashed).`:""}`); return; } }
       else toast("That space is taken. Drop it on a free gap."); }
     else { if(fits(r,p.u,p.h)){ const d=newDevice(r,p.type,p.u); r.devices.push(d); sel={dev:d.id,port:null,slot:null,pin:null}; saveRack(); afterAdd(d); return; } toast("That space is taken. Drop it on a free gap."); }
   }
