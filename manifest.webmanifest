@@ -1,0 +1,10 @@
+{
+  "name": "RackGrid",
+  "short_name": "RackGrid",
+  "description": "Track server racks, network cables, IP addresses, floor plans and wall ports.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#e9edf1",
+  "theme_color": "#1d5bd3",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
