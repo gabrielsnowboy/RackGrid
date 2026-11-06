@@ -40,6 +40,8 @@ The anon key is designed to be public. What protects your data is Row Level Secu
 
 If you'd rather not commit the keys, leave `config.js` empty. Each person can paste the URL and key on the Team Workspace screen, and it's saved in their browser.
 
+**Before inviting anyone, read [Security in the README](README.md#security).** If your repository is public, at least turn off open sign-ups in Supabase so strangers can't create accounts in your project.
+
 ## 5. Create your team
 
 1. Open RackGrid → **Open Team Workspace** → **Create an account**.

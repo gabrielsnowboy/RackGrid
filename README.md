@@ -57,6 +57,47 @@ That means:
 
 Don't commit backups to a public repository. They contain your network layout and IP addresses.
 
+## Security
+
+### If someone copies this repository
+
+The repository contains only code, the database schema and `config.js`. It holds **none of your data**: Personal Workspace data lives in each person's browser, and team data lives in your Supabase project. Someone who copies the repo and connects it to their own Supabase project gets a completely separate, empty app.
+
+The thing to watch is **`config.js` after you've filled it in**. In a public repository, anyone can read your Supabase URL and anon key, and a copy of the repo would connect to **your** project.
+
+### What a stranger with your keys can and can't do
+
+They **can't**:
+
+- **Read or change your teams' data.** Every table has Row Level Security, and the database only shows a team to its members. People outside a team get nothing back and are refused on every write and floor plan upload.
+- **Reach the admin side of your project.** The anon key is designed to be public. The powerful `service_role` key is never in the repository or the app.
+
+They **can**, unless you lock it down:
+
+- **Use your project's resources.** If sign-ups are open, they can create an account in your Supabase project and make their own team. That uses your free-tier storage, database space and sign-up email quota, but still shows them none of your data.
+- **Try to guess invitation codes.** Codes are random and can expire or be single-use. Anyone who has a valid code can join with the role it grants.
+- **Phish your colleagues.** Someone could host a lookalike copy and trick a teammate into typing their password there, as with any login page.
+
+### Recommended steps
+
+1. **Turn off open sign-ups.** In Supabase, go to **Authentication → Sign In / Providers** and turn off **Allow new users to sign up**. Then add people yourself with **Authentication → Users → Invite user**, and send them a RackGrid team invitation. Strangers can no longer create accounts, even with your keys.
+2. **Treat invitation links like passwords.** Send them privately, not in public channels. For individuals, use **Single use** with a short expiry. Cancel invitations you no longer need under **Team & invites**.
+3. **Use one official address.** Tell your team the single URL where RackGrid lives, and set the same address as **Site URL** and **Redirect URLs** in Supabase.
+4. **Keep secrets out of the repository.** Never put the `service_role` key or the database password in `config.js`, in the app, or anywhere in GitHub.
+5. **Consider a private repository.** GitHub Pages from a private repository needs a paid GitHub plan. Alternatively, leave `config.js` empty and share the URL and anon key privately; each person pastes them once on the Team Workspace screen. This keeps casual copiers from finding them, but it isn't real protection on its own, so do step 1 as well.
+6. **Review members now and then.** Remove people who have left under **Team & invites**, and keep the number of owners and administrators small.
+
+### Data on each computer
+
+- **Personal Workspace:** stored unencrypted in the browser. Anyone using the same computer and browser profile can open it.
+- **Team Workspace:** each member's browser keeps an offline copy of the team's racks, sites and floor plans. On a shared computer, sign out (switch workspace → Open Team Workspace → Sign out) and clear the browser's site data when you're done.
+- **Backups and CSV exports** contain your network layout and IP addresses. Store them like any other sensitive document.
+
+### Who else can see team data
+
+- **You, as the Supabase project admin,** can see all team data in the Supabase dashboard, and so can anyone you add to the Supabase project.
+- **Supabase** stores the data encrypted at rest. All traffic between RackGrid and Supabase uses HTTPS.
+
 ## CSV device import
 
 ```csv
