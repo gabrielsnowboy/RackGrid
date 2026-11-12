@@ -57,10 +57,71 @@ If you'd rather not commit the keys, leave `config.js` empty. Each person can pa
 | Invite people (as member or administrator) | ✓ | ✓ | |
 | Remove members | ✓ | ✓ (members only) | |
 | Rename the team | ✓ | ✓ | |
+| Import, link and refresh devices from IT Glue | ✓ | ✓ | ✓ |
+| Connect or disconnect IT Glue, choose the default organization | ✓ | ✓ | |
 | Change roles, transfer ownership | ✓ | | |
 | Delete the team | ✓ | | |
 
 Each team has one owner. To hand a team over, the owner picks **Make owner…** next to a member and becomes an administrator.
+
+## Connect IT Glue (optional)
+
+RackGrid can read devices and site addresses from [IT Glue](https://www.itglue.com/). It only reads; it never changes anything in IT Glue.
+
+**What RackGrid reads:**
+- **Organizations:** names.
+- **Configurations:** name, type, status, manufacturer, model, serial number, primary IP, hostname, MAC address, asset tag, operating system, location, warranty expiry, notes and the IT Glue link, plus their network interfaces.
+- **Locations:** addresses.
+
+It never requests passwords, documents, contacts or flexible assets.
+
+**How the key is protected:** the IT Glue API key never reaches anyone's browser. It's stored encrypted in Supabase Vault in your project. Only a small bridge function (`supabase/functions/itglue`) can use it, and only on behalf of a signed-in team member. Nobody can read the key back, not even the team owner: they can only replace or delete it.
+
+### 1. Update the database
+
+Run `supabase/schema.sql` again in **SQL Editor** (the same way as step 2 above). It adds the IT Glue settings and keeps all existing data.
+
+### 2. Deploy the bridge function
+
+**From the Supabase dashboard:**
+1. Go to **Edge Functions** → **Deploy a new function** → **Via Editor**.
+2. Name it exactly `itglue`.
+3. Replace the sample code with everything in `supabase/functions/itglue/index.ts`, then click **Deploy**.
+
+**Or with the Supabase CLI**, from this repository's folder: `supabase functions deploy itglue --project-ref <your-project-ref>`
+
+**Recommended:** under **Edge Functions → Secrets**, add `RACKGRID_ALLOWED_ORIGINS` with your RackGrid address, e.g. `https://<your-username>.github.io`. The function then only answers requests from your copy of RackGrid.
+
+### 3. Create an IT Glue API key
+
+1. In IT Glue, go to **Account → Settings → API Keys** and generate a new custom key. Name it `RackGrid`.
+2. **Leave password access turned off.** RackGrid doesn't need it.
+3. Copy the key. IT Glue shows it only once.
+
+You need to be an IT Glue administrator to create API keys. API access depends on your IT Glue subscription; if you don't see **API Keys**, ask your IT Glue account manager.
+
+### 4. Connect it in RackGrid
+
+1. Open your team → **Team & invites** → **IT Glue**.
+2. Choose your IT Glue data center:
+   - United States: your IT Glue address ends in `itglue.com`
+   - Europe: `eu.itglue.com`
+   - Australia: `au.itglue.com`
+3. Paste the key and click **Connect**. RackGrid tests the connection straight away.
+4. Pick a **Default organization**, usually the client whose server room this team documents.
+
+### Using IT Glue in RackGrid
+
+- **Import devices:** select a rack → **Import from IT Glue…**. Pick the organization, search or filter by type, tick devices and click **Add**.
+  - Switches, firewalls, servers and other rack equipment go into the first free units. Drag them into place afterwards.
+  - Access points go on the current floor plan.
+  - **Network and rack equipment only** hides workstations, printers, phones and virtual machines.
+- **Link an existing device:** select it → **Link to IT Glue…** → **Link**. RackGrid copies the model, serial number and management IP, and keeps the device's name and position.
+- **Refresh:** **Refresh from IT Glue** on a device, or **Refresh N linked devices** on the rack. Each device panel shows the IT Glue details: hostname, MAC, OS, location, warranty with an expiry warning, and interfaces, plus an **Open in IT Glue** link.
+- **Site address:** on the Site tab, **Fill address from IT Glue…** copies the address of an IT Glue location.
+- **Personal Workspace, or without the bridge:** click **IT Glue…** in the sidebar and choose **From a CSV export**. Export the organization's configurations from IT Glue as CSV and choose the file. RackGrid matches the columns, and you can correct the matching if needed. Devices imported this way can't be refreshed.
+
+IT Glue allows 3,000 API requests every 5 minutes per account. Importing one organization uses about one request per 1,000 devices; refreshing uses one request per device.
 
 ## How syncing works
 
@@ -74,4 +135,7 @@ Each team has one owner. To hand a team over, the owner picks **Make owner…** 
 
 - **"Sync paused"** in the sidebar shows the server's reason, e.g. your account was removed from the team. Click **Retry** after fixing it.
 - **Invitation link opens the wrong page:** check that the Site URL and Redirect URLs in step 3 match the address you use.
+- **"Couldn't reach the IT Glue bridge":** check that the function is deployed and named exactly `itglue`, and that `RACKGRID_ALLOWED_ORIGINS` (if set) matches the address in your browser's address bar.
+- **"IT Glue rejected the API key":** the key was revoked or mistyped, or the data center is wrong. Paste a new key under **Team & invites → IT Glue**.
+- **The function answers "Invalid JWT":** some newer Supabase projects need **Verify JWT** turned off for the function (Edge Functions → itglue → Details). This is safe: the function checks each person's sign-in and team membership itself.
 - **Live updates don't appear:** in Supabase, open **Database → Publications → supabase_realtime** and check that `docs`, `activity`, `team_members` and `teams` are enabled. Re-running `schema.sql` turns them on.

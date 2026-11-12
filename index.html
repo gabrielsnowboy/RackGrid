@@ -459,6 +459,41 @@ body.ws-open .app{visibility:hidden}
 .tp-inv li{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px}
 .tp-inv li span:nth-child(2){color:var(--muted);flex:1;min-width:140px}
 .linkbtn.danger{color:var(--warn)}
+
+/* IT Glue */
+.itgbox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 0 16px;display:flex;flex-direction:column;gap:8px}
+.itgbox.none{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
+.itgbox.none span{display:flex;flex-direction:column}
+.itgbox small{color:var(--muted);font-size:12px}
+.itg-head{display:flex;gap:10px;align-items:center}
+.itg-head>span:last-child{display:flex;flex-direction:column;min-width:0}
+.itg-head b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.itg-logo{width:26px;height:26px;border-radius:6px;background:#0f2f4f;color:#fff;font:700 11px/26px var(--f-tag);text-align:center;flex:none;letter-spacing:.02em}
+.itgbox dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:0;font-size:12px}
+.itgbox dt{color:var(--muted)} .itgbox dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.itg-if summary{cursor:pointer;font-size:12px;color:var(--accent)}
+.itg-if table{font-size:11px;margin-top:6px} .itg-if td{padding:3px 6px}
+.itg-status{margin:0 0 8px;font-size:13px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.itgp{display:flex;flex-direction:column;gap:10px;max-height:92vh}
+.itgp .tp-head{margin-bottom:0}
+.itgp-src{display:flex;flex-direction:column;gap:8px}
+.itgp-src .tabs{align-self:flex-start}
+.itgp-src .tabs button:disabled{opacity:.45;cursor:not-allowed}
+.itgp-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.itgp-row>label:not(.filebtn){display:flex;flex-direction:column;gap:3px;min-width:min(320px,100%);font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.itgp-row>.hint{align-self:center}
+.itgp-row select,.itgp-foot select,.itgp-filters select{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:6px 8px;font-size:13px;color:var(--ink);text-transform:none;letter-spacing:0;font-weight:400}
+.itgp-map summary{cursor:pointer;font-size:13px;display:flex;gap:8px;align-items:center}
+.itgp-map .fields{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin:8px 0 0}
+.itgp-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.itgp-filters .search{margin:0;flex:1 1 220px}
+.itgp-list{flex:1;min-height:160px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.itgp-list table{font-size:12px}
+.itgp-list th{position:sticky;top:0;z-index:1}
+.itgp-list tr.on td{background:var(--accent-soft)}
+.itgp-list td .btn{padding:3px 10px;font-size:12px}
+.itgp-foot{display:flex;gap:12px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.itgp-foot .itgp-row{flex-direction:row;align-items:center;text-transform:none;letter-spacing:0;font-size:13px;font-weight:400}
 </style>
 
 <div class="app">
@@ -484,6 +519,7 @@ body.ws-open .app{visibility:hidden}
         <button class="btn" id="importBtn">Import…</button>
         <button class="btn" id="exportJson">Backup (.json)</button>
         <button class="btn" id="exportCsv">Cables &amp; IPs (.csv)</button>
+        <button class="btn" id="itgBtn" title="Import devices from IT Glue">IT Glue…</button>
       </div>
       <p class="hint" id="storeNote" style="margin-top:10px"></p>
     </div>
@@ -819,7 +855,7 @@ function jackTable(s){
 }
 
 /* rack view */
-function matchDev(d){ if(!q) return false; const s=q.toLowerCase(); return [d.name,d.model,d.serial,d.ip,TYPES[d.type]?.label,d.notes].some(v=>(v||"").toLowerCase().includes(s)); }
+function matchDev(d){ if(!q) return false; const s=q.toLowerCase(); return [d.name,d.model,d.serial,d.ip,TYPES[d.type]?.label,d.notes,d.itg?.hostname,d.itg?.assetTag,d.itg?.mac,d.itg?.name].some(v=>(v||"").toLowerCase().includes(s)); }
 function matchPort(pt,jk){ if(!q) return false; const s=q.toLowerCase(); return [pt.label,pt.ip,pt.cable,pt.ext,pt.mac,pt.vlan,pt.note,jk?jname(jk.p,jk.j):"",jk?.x.endpoint,jk?.x.eip].some(v=>(v||"").toLowerCase().includes(s)); }
 function portHTML(r,d,i,dups,jm){
   const pt=d.ports[i]; if(!pt) return "";
@@ -964,6 +1000,7 @@ function renderInsp(){
    ${fld("Site","siteId",rackSite(r)||"",{full:true,select:[["","Not assigned"],...sortBy(S.sites,"name").map(id=>[id,S.sites[id].name])]})}
    ${fld("Room / location","location",r.location||"",{full:true,ph:"e.g. Server room, 2nd floor"})}${fld("Height (U)","units",r.units,{type:"number"})}${fld("Notes","notes",r.notes||"",{area:true})}</div>
    <p class="hint">Click a device or port to inspect it. Drag a device to move it, or select it and use the ↑ ↓ keys. Click an empty unit to install a device there.</p>
+   ${(()=>{ const n=r.devices.filter(d=>/^[0-9]+$/.test(d.itg?.id||"")).length; return (itgReady()||!IN_CLAUDE)&&!readOnly?`<div class="sech">IT Glue</div><div class="btnrow" style="margin-bottom:14px"><button class="btn" data-act="itgimport">Import from IT Glue…</button>${itgReady()&&n?`<button class="btn" data-act="itgrefreshall">Refresh ${n} linked device${n===1?"":"s"}</button>`:""}</div>`:""; })()}
    <div class="btnrow">${delBtn("rack","Delete rack")}</div>`;
 }
 function renderDevInsp(r,d){
@@ -978,6 +1015,7 @@ function renderDevInsp(r,d){
    ${fld("Notes","notes",d.notes,{area:true})}</div>
    ${battDue(d)?`<div class="notice">The battery replacement date has passed.</div>`:""}
    ${d.type==="custom"?`<div class="btnrow" style="margin:-6px 0 14px"><button class="btn" data-act="setupcustom" ${readOnly?"disabled":""}>Set up size and ports…</button></div>`:""}
+   ${itgDeviceBox(d)}
    <div class="sech">Ports</div>
    <div class="fields" data-scope="ports">${fld("RJ45","rj45",kinds.rj45||0,{type:"number"})}${fld("SFP","sfp",kinds.sfp||0,{type:"number"})}${fld("Fiber LC","lc",kinds.lc||0,{type:"number"})}<label style="justify-content:flex-end"><button class="btn" data-act="applyports" ${readOnly?"disabled":""}>Apply port counts</button></label></div>
    ${d.ports.length?`<div class="plist">${d.ports.map((pt,i)=>{ const o=pt.link?devById(r,pt.link.d):null; const jk=jm[`${r.id}:${d.id}:${i}`];
@@ -1028,6 +1066,7 @@ function renderSiteSideInsp(el){
    <div class="fields" data-scope="site">${fld("Site name","name",s.name,{full:true})}
    ${fld("Address","address",s.address||"",{area:true,rows:3,ph:"Street\nCity, Province/State\nPostal code"})}
    ${fld("On-site contact","contact",s.contact||"",{full:true,ph:"Name and phone"})}${fld("Notes","notes",s.notes||"",{area:true,ph:"Access hours, door codes kept elsewhere, ISP account"})}</div>
+   ${itgReady()&&!readOnly?`<div class="btnrow" style="margin:-6px 0 14px"><button class="btn" data-act="itgloc">Fill address from IT Glue…</button>${s.itg?.name?`<span class="hint" style="margin:0;align-self:center">IT Glue location: ${esc(s.itg.name)}</span>`:""}</div>`:""}
    ${f?`<div class="sech">Floor: ${esc(f.name)}</div>
    <div class="fields" data-scope="floor" data-fid="${f.id}">${fld("Floor name","fname",f.name,{full:true})}</div>
    <div class="btnrow" style="margin-bottom:16px">${f.plan?delBtn("plan:"+f.id,"Remove floor plan"):""}${s.floors.length>1?delBtn("floor:"+f.id,"Delete floor"):""}</div>`:""}
@@ -1093,6 +1132,7 @@ function renderApInsp(el,s,a){
   else if(at?.jack && at.t) chain+=`<div class="hop last"><span class="gap">The patch panel port isn't connected to a switch yet.</span></div>`;
   else if(!at || at.partial) chain+=`<div class="hop last"><span class="gap">Not connected yet. Choose where it plugs in below.</span></div>`;
   el.innerHTML=`${roNote()}<button class="back" data-back="site">← ${esc(s.name)}</button><h2>Access point ${esc(a.label)}</h2><p class="sub">${esc(floorName(s,a.floor))}${a.room?" · "+esc(a.room):""}</p>
+   ${a.itg?`<p class="hint" style="margin-top:-8px">From IT Glue${a.itg.org?" · "+esc(a.itg.org):""}${/^https:\/\//.test(a.itg.url)?` · <a href="${esc(a.itg.url)}" target="_blank" rel="noopener">Open in IT Glue ↗</a>`:""}</p>`:""}
    <div class="trace">${chain}</div>
    <div class="fields" data-scope="ap">${fld("Name","label",a.label,{ph:"AP-01"})}${fld("Floor","floor",a.floor,{select:s.floors.map(f=>[f.id,f.name])})}
    ${fld("Room / area","room",a.room||"",{full:true,ph:"e.g. Open office ceiling"})}
@@ -1324,6 +1364,12 @@ document.addEventListener("click",e=>{
   if(act==="cov"){ showCov=!showCov; renderSite(); return; }
   if(act==="placejack"||act==="placerack"){ const m=act==="placejack"?"jack":"rack"; placeMode = placeMode===m?null:m; if(placeMode) toast(m==="jack"?"Click the floor plan where each wall port is. Press Esc when done.":"Click where the rack sits on the floor plan."); renderSite(); return; }
   if(act==="editplan") return openPlanEditor();
+  if(act==="itgimport"||t.id==="itgBtn") return Picker.open();
+  if(act==="itglink"){ const d=devById(rack(),sel.dev); if(d) Picker.open({linkDev:d.id,q:d.serial||""}); return; }
+  if(act==="itgrefresh"){ const d=devById(rack(),sel.dev); if(d?.itg) itgRefreshDevices([d]); return; }
+  if(act==="itgrefreshall"){ const r=rack(); itgRefreshDevices(r.devices.filter(d=>/^[0-9]+$/.test(d.itg?.id||""))); return; }
+  if(act==="itgunlink"){ const d=devById(rack(),sel.dev); if(!d) return; if(armed!=="itgunlink"){ armed="itgunlink"; const b=t; b.textContent="Click again to unlink"; b.classList.add("arm"); return; } armed=null; delete d.itg; saveRack(); toast(`${d.name} unlinked from IT Glue. Its details stay as they are.`); return; }
+  if(act==="itgloc") return itgPickLocation();
   if(act==="jplus"||act==="jminus"){ const p=site()?.pins.find(z=>z.id===sel.pin); if(p) setJackPorts(p,jp(p).length+(act==="jplus"?1:-1)); return; }
   if(act==="movepin"){ placeMode = placeMode==="move"?null:"move"; if(placeMode){ const p=site()?.pins.find(z=>z.id===sel.pin); if(p&&p.floor!==floor()?.id){ curFloor=p.floor; } toast("Click the floor plan where this marker should go."); } render(); return; }
   if(act==="zin"){ zoom=Math.min(4,+(zoom*1.25).toFixed(2)); renderSite(); return; }
@@ -1871,7 +1917,7 @@ const Team={
     const {data:{session}}=await sb().auth.getSession(); this.me=session?.user||null;
     if(!this.me){ ssSet(WS_KEY,null); lsSet("rg-ws-skip","1"); location.reload(); return; }
     const cached=await idb.get("team:"+teamId,"cache").catch(()=>null), ob=await idb.get("team:"+teamId,"outbox").catch(()=>null);
-    if(cached){ S.racks=cached.racks||{}; S.sites=cached.sites||{}; this.bases=cached.bases||{}; this.name=cached.name||""; this.role=cached.role||"member"; this.members=cached.members||{}; this.myName=cached.myName||""; }
+    if(cached){ this.itg=cached.itg||null; S.racks=cached.racks||{}; S.sites=cached.sites||{}; this.bases=cached.bases||{}; this.name=cached.name||""; this.role=cached.role||"member"; this.members=cached.members||{}; this.myName=cached.myName||""; }
     if(ob){ this.outbox=ob.items||{}; this.actQueue=ob.acts||[]; }
     if(cached){ loaded=true; pickDefaults(); render(); }
     window.addEventListener("online",()=>{ this.online=true; this.connect(); });
@@ -1895,7 +1941,12 @@ const Team={
     if(!t.data){ this.kickedOut("You're no longer a member of this team."); return false; }
     this.online=true; this.name=t.data.name; this.members={}; for(const x of m.data||[]) this.members[x.user_id]=x;
     const mine=this.members[this.me.id]; if(!mine){ this.kickedOut("You're no longer a member of this team."); return false; }
-    this.role=mine.role; this.myName=mine.display_name||this.me.email; this.saveCache(); render(); return true;
+    this.role=mine.role; this.myName=mine.display_name||this.me.email; await this.loadItg(); this.saveCache(); render(); return true;
+  },
+  async loadItg(){
+    const {data,error}=await sb().from("team_integrations").select("itglue_region,itglue_key_hint,itglue_secret_id,itglue_org_id,itglue_org_name").eq("team_id",this.id).maybeSingle();
+    if(error){ if(netErr(error)) return; this.itg={missing:/team_integrations|does not exist|schema cache|42P01|PGRST20/.test(error.message+(error.code||""))}; return; }
+    this.itg = data&&data.itglue_secret_id ? {configured:true,region:data.itglue_region,hint:data.itglue_key_hint,orgId:data.itglue_org_id||"",orgName:data.itglue_org_name||""} : {configured:false,region:data?.itglue_region||"us"};
   },
   kickedOut(msg){ ssSet(WS_KEY,null); lsSet(WS_LAST,null); lsSet("rg-ws-skip","1"); toast(msg); setTimeout(()=>location.reload(),1600); },
   async fetchAll(){
@@ -1981,7 +2032,7 @@ const Team={
   },
   log(summary,extra={}){ this.actQueue.push({team_id:this.id,user_id:this.me.id,user_name:this.myName,target_type:"team",target_id:"",site_id:"",rack_id:"",summary,happened_at:new Date().toISOString(),...extra}); this.saveOutbox(); this.flushSoon(300); },
   cacheTimer:0, obTimer:0,
-  saveCache(){ clearTimeout(this.cacheTimer); this.cacheTimer=setTimeout(()=>idb.put("team:"+this.id,{racks:S.racks,sites:S.sites,bases:this.bases,name:this.name,role:this.role,members:this.members,myName:this.myName,ts:Date.now()},"cache").catch(()=>{}),250); },
+  saveCache(){ clearTimeout(this.cacheTimer); this.cacheTimer=setTimeout(()=>idb.put("team:"+this.id,{itg:this.itg,racks:S.racks,sites:S.sites,bases:this.bases,name:this.name,role:this.role,members:this.members,myName:this.myName,ts:Date.now()},"cache").catch(()=>{}),250); },
   saveOutbox(){ clearTimeout(this.obTimer); this.obTimer=setTimeout(()=>idb.put("team:"+this.id,{items:this.outbox,acts:this.actQueue},"outbox").catch(()=>{}),150); },
   pending(){ return Object.keys(this.outbox).length; },
   setStatus(){
@@ -2049,6 +2100,7 @@ function diffRack(a,b){
     const f=["model","serial","ip","notes","type","kind","installed","replaceBy"].filter(k=>(o[k]||"")!==(d[k]||""));
     if(f.length) out.push(`updated ${d.name} (${f.map(k=>({ip:"IP",replaceBy:"battery date",installed:"battery date",kind:"kind"}[k]||k)).filter((x,i,arr)=>arr.indexOf(x)===i).join(", ")})`);
     if(o.ports.length!==d.ports.length) out.push(`changed ${d.name} to ${d.ports.length} ports`);
+    if((o.itg?.id||"")!==(d.itg?.id||"")) out.push(d.itg?`linked ${d.name} to IT Glue ${d.itg.name||""}`.trim():`unlinked ${d.name} from IT Glue`);
     d.ports.forEach((p,i)=>{ const q=o.ports[i]; if(!q) return;
       const lk=x=>x.link?x.link.d+":"+x.link.p:"";
       if(lk(p)!==lk(q)||(p.ext||"")!==(q.ext||"")){ const key=[d.id+":"+i,p.link?lk(p):"",q.link?lk(q):""].sort().join("|"); if(seen.has(key)) return; seen.add(key);
@@ -2131,10 +2183,21 @@ function renderActivity(){
 /* ---------- team panel: members, roles, invitations ---------- */
 const TeamPanel={
   invites:[], lastCode:"",
-  async open(){ this.render(true); if(Team.can("manage")) await this.loadInvites(); this.render(); },
+  itgMsg:"",
+  async open(){ this.itgMsg=""; this.render(true); if(Team.can("manage")){ await Team.loadItg(); await this.loadInvites(); this.render(); if(Team.itg?.configured&&!itgCache.orgs) itgOrgs().then(()=>this.render()).catch(()=>{}); } else this.render(); },
   async loadInvites(){ const {data}=await sb().from("team_invites").select("id,code,role,created_at,expires_at,max_uses,uses,revoked").eq("team_id",Team.id).eq("revoked",false).order("created_at",{ascending:false}); this.invites=(data||[]).filter(i=>(!i.expires_at||new Date(i.expires_at)>new Date())&&(!i.max_uses||i.uses<i.max_uses)); },
   link(code){ return `${location.origin}${location.pathname}#join=${code}`; },
-  render(loading){
+  render(loading){ // keep anything the person is typing when the panel redraws
+    const ids=["tpItgKey","tpItgRegion","tpInvRole","tpInvDays","tpInvOnce","tpMyName","tpTeamName"], keep={}, root=$("#modalRoot");
+    const open=!!root.querySelector(".tp"); const act=document.activeElement?.id, selS=document.activeElement?.selectionStart, selE=document.activeElement?.selectionEnd;
+    if(open) for(const id of ids){ const el=$("#"+id); if(el) keep[id]=el.type==="checkbox"?el.checked:el.value; }
+    const scroll=root.querySelector(".modal")?.scrollTop||0;
+    this._render(loading);
+    if(open){ for(const [id,v] of Object.entries(keep)){ const el=$("#"+id); if(!el) continue; if(el.type==="checkbox") el.checked=v; else el.value=v; }
+      const m=root.querySelector(".modal"); if(m) m.scrollTop=scroll;
+      const f=act&&$("#"+act); if(f){ f.focus(); try{ if(selS!=null) f.setSelectionRange(selS,selE); }catch(e){} } }
+  },
+  _render(loading){
     const mgr=Team.can("manage"), own=Team.can("owner"), me=Team.me.id;
     const mem=Object.values(Team.members).sort((a,b)=>({owner:0,admin:1,member:2}[a.role]-{owner:0,admin:1,member:2}[b.role])||(a.display_name||"").localeCompare(b.display_name||""));
     $("#modalRoot").innerHTML=`<div class="veil" id="veil"><div class="modal wide tp" role="dialog" aria-label="Team settings">
@@ -2155,6 +2218,7 @@ const TeamPanel={
           <h3 class="sech" style="margin-top:16px">Open invitations</h3>
           ${loading?`<p class="hint">Loading…</p>`:this.invites.length?`<ul class="tp-inv">${this.invites.map(i=>`<li><span class="mono">${esc(i.code)}</span><span>${ROLE_LABEL[i.role]} · ${i.expires_at?"expires "+new Date(i.expires_at).toLocaleDateString():"no expiry"}${i.max_uses?` · ${i.uses}/${i.max_uses} used`:` · used ${i.uses}×`}</span><button class="linkbtn" data-tpcopylink="${esc(i.code)}">Copy link</button><button class="linkbtn danger" data-tprev="${i.id}">Cancel</button></li>`).join("")}</ul>`:`<p class="hint">No open invitations.</p>`}`
           :`<p class="hint">Ask an owner or administrator for an invitation link to bring someone in.</p>`}
+        ${itgTeamSection()}
         <h3 class="sech" style="margin-top:18px">Personal Workspace</h3>
         <p class="hint">Copy the sites, racks and floor plans saved in this browser's Personal Workspace into ${esc(Team.name)}. Your personal copy stays as it is.</p>
         <button class="btn" data-tp="importlocal" ${Workspace.hasLocalData()?"":"disabled"}>${Workspace.hasLocalData()?`Copy ${esc(Workspace.localSummary())} into this team`:"Nothing saved in Personal Workspace"}</button>
@@ -2165,6 +2229,7 @@ const TeamPanel={
     $("#tpClose").onclick=()=>{ armed=null; closeModal(); }; $("#veil").onclick=e=>{ if(e.target.id==="veil"){ armed=null; closeModal(); } };
     const mod=$("#modalRoot");
     mod.onchange=async e=>{ const t=e.target;
+      if(t.id==="tpItgOrg"){ const o=(itgCache.orgs||[]).find(x=>x.id===t.value); const {error}=await sb().rpc("set_itglue_org",{p_team:Team.id,p_org_id:t.value,p_org_name:o?.name||""}); if(error) return toast(errText(error)); await Team.loadItg(); toast(t.value?`Default IT Glue organization: ${o?.name}.`:"Default organization cleared."); return; }
       if(t.id==="tpMyName"){ const v=t.value.trim(); if(!v) return; const {error}=await sb().rpc("set_display_name",{p_team:Team.id,p_name:v}); if(error) return toast(errText(error)); Team.myName=v; if(Team.members[me]) Team.members[me].display_name=v; toast("Name updated."); render(); }
       if(t.id==="tpTeamName"){ const v=t.value.trim(); if(!v) return; const {error}=await sb().from("teams").update({name:v}).eq("id",Team.id); if(error) return toast(errText(error)); Team.log(`renamed the team to ${v}`); Team.name=v; toast("Team renamed."); render(); }
       if(t.classList.contains("tp-role")){ const u=t.dataset.user, role=t.value; if(role==="Owner") return;
@@ -2176,6 +2241,7 @@ const TeamPanel={
       if(b.dataset.tprev){ const {error}=await sb().rpc("revoke_invite",{p_invite:b.dataset.tprev}); if(error) return toast(errText(error)); await this.loadInvites(); this.render(); toast("Invitation cancelled."); return; }
       if(b.dataset.tprm){ const u=b.dataset.tprm; if(armed!=="rm:"+u){ armed="rm:"+u; this.render(); return; } armed=null; const nm=Team.members[u]?.display_name; const {error}=await sb().rpc("remove_member",{p_team:Team.id,p_user:u}); if(error) return toast(errText(error)); Team.log(`removed ${nm||"a member"} from the team`); await Team.loadTeamInfo(); this.render(); return; }
       const a=b.dataset.tp;
+      if(a&&a.startsWith("itg")) return itgTeamAction(a);
       if(a==="invite"){ const days=+$("#tpInvDays").value; const {data,error}=await sb().rpc("create_invite",{p_team:Team.id,p_role:$("#tpInvRole").value,p_days:days,p_max_uses:$("#tpInvOnce").checked?1:null}); if(error) return toast(errText(error)); this.lastCode=data; await this.loadInvites(); this.render(); return; }
       if(a==="importlocal"){ closeModal(); importLocalIntoTeam(); return; }
       if(a==="leave"){ if(armed!=="tpleave"){ armed="tpleave"; this.render(); return; } armed=null; const {error}=await sb().rpc("remove_member",{p_team:Team.id,p_user:me}); if(error) return toast(errText(error)); Team.kickedOut("You left the team."); return; }
@@ -2197,7 +2263,274 @@ async function importLocalIntoTeam(){
   Team.log(`copied their Personal Workspace into the team (${nS} site${nS===1?"":"s"}, ${nR} rack${nR===1?"":"s"})`);
 }
 
-if(window.RG_DEBUG) window.__rg={S,Team,Workspace,get view(){ return view; }};
+/* =====================================================================
+   IT Glue: retrieve devices and locations
+   Team Workspace → live, through the team's read-only "itglue" bridge function.
+   Any workspace   → from a CSV export of IT Glue configurations.
+   ===================================================================== */
+const ITG_REGIONS=[["us","United States (itglue.com)"],["eu","Europe (eu.itglue.com)"],["au","Australia (au.itglue.com)"]];
+const ITG_NOT_RACK=/workstation|laptop|desktop|notebook|printer|phone|mobile|tablet|virtual|\bvm\b|monitor|camera|licen|software|user|thin client|kiosk|copier|scanner/i;
+function itgKind(type,model){
+  const t=(type||"").toLowerCase(), m=(model||"").toLowerCase();
+  if(/access point|wireless|\bwap\b|\bap\b|wi-?fi/.test(t)) return "ap";
+  if(/patch/.test(t)) return /fib|fibre|fiber/.test(t)?"fiber":(/48/.test(m)?"patch48":"patch");
+  if(/firewall|utm|security appliance/.test(t)) return "firewall";
+  if(/router|gateway|sd-?wan/.test(t)) return "router";
+  if(/switch/.test(t)) return /\b48|48[a-z]|-48/.test(m)?"switch48":"switch";
+  if(/battery/.test(t)) return "battery";
+  if(/\bups\b|uninterrupt/.test(t)) return "ups";
+  if(/pdu|power distribution/.test(t)) return "pdu";
+  if(/nas|san\b|storage/.test(t)) return "nas";
+  if(/server|host|hypervisor|esx|appliance/.test(t)) return "server";
+  return "custom";
+}
+function itgModel(c){ const mf=(c.manufacturer||"").trim(), md=(c.model||"").trim(); if(!md) return mf; if(!mf||md.toLowerCase().startsWith(mf.toLowerCase())) return md; return mf+" "+md; }
+function itgMeta(c,prev){
+  const m={id:c.id||"",name:c.name||"",url:c.url||"",org:c.org||"",orgId:c.orgId||"",type:c.type||"",status:c.status||"",hostname:c.hostname||"",mac:c.mac||"",
+    assetTag:c.assetTag||"",os:c.os||"",location:c.location||"",warranty:c.warranty||"",syncedAt:new Date().toISOString(),source:c._csv?"csv":"api"};
+  if(Array.isArray(c.interfaces)) m.interfaces=c.interfaces.slice(0,64).map(x=>({name:x.name||"",ip:x.ip||"",mac:x.mac||"",primary:!!x.primary}));
+  else if(prev?.interfaces) m.interfaces=prev.interfaces;
+  return m;
+}
+// Copies IT Glue values onto a device. Never blanks a field IT Glue leaves empty, and keeps the RackGrid name unless asked.
+function applyItg(d,c,{useName=false}={}){
+  const before={name:d.name,model:d.model,serial:d.serial,ip:d.ip};
+  const model=itgModel(c); if(model) d.model=model;
+  if(c.serial) d.serial=c.serial; if(c.ip) d.ip=c.ip;
+  if(useName&&c.name) d.name=c.name;
+  d.itg=itgMeta(c,d.itg);
+  return Object.keys(before).filter(k=>before[k]!==d[k]);
+}
+function itgLinked(){ const m={}; for(const r of Object.values(S.racks)) for(const d of r.devices) if(d.itg?.id) m[d.itg.id]={where:r.name,name:d.name};
+  for(const s of Object.values(S.sites)) for(const p of s.pins||[]) if(p.kind==="ap"&&p.itg?.id) m[p.itg.id]={where:s.name,name:p.label}; return m; }
+const itgReady=()=>mode==="team"&&!!Team.itg?.configured;
+const pDate=w=>{ const m=String(w||"").match(/^(\d{4})-(\d{2})-(\d{2})(?:$|T00:00:00(?:\.0+)?(?:Z|[+-]00:?00)?$)/); return m?new Date(+m[1],+m[2]-1,+m[3]):new Date(w); }; // date-only values are calendar days, not UTC instants
+const warrantyPast=w=>{ if(!w) return false; const t=pDate(w); if(isNaN(t)) return false; const d=new Date(); d.setHours(0,0,0,0); return t<d; };
+const fmtDate=w=>{ const t=pDate(w); return w&&!isNaN(t)?t.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}):(w||""); };
+
+async function itgCall(action,params={}){
+  if(mode!=="team") throw new Error("Live IT Glue lookups work in a Team Workspace. Use a CSV export instead.");
+  if(!Team.online) throw new Error("You're offline. IT Glue lookups need a connection.");
+  const {data,error}=await sb().functions.invoke("itglue",{body:{team:Team.id,action,...params}});
+  if(error){ let msg=""; try{ msg=(await error.context?.json())?.error||""; }catch(e){}
+    if(!msg) msg = /Fetch|Relay|non-2xx/.test(error.name+error.message) ? "Couldn't reach the IT Glue bridge. Check you're online and that the itglue function is deployed (see SETUP.md)." : errText(error);
+    throw new Error(msg); }
+  if(data?.error) throw new Error(data.error);
+  return data;
+}
+const itgCache={orgs:null,cfg:{},loc:{}};
+async function itgOrgs(force){ if(!itgCache.orgs||force) itgCache.orgs=(await itgCall("organizations")).items; return itgCache.orgs; }
+async function itgConfigs(org,force){ if(!itgCache.cfg[org]||force){ const r=await itgCall("configurations",{org}); itgCache.cfg[org]={items:r.items,truncated:r.truncated,at:Date.now()}; } return itgCache.cfg[org]; }
+
+/* ---------- CSV export → configuration rows ---------- */
+const ITG_COLS=[["name","Name",["name","configuration name","configuration"]],["type","Type",["configuration type","configuration type name","type","kind"]],
+  ["manufacturer","Manufacturer",["manufacturer","manufacturer name","make","vendor"]],["model","Model",["model","model name"]],
+  ["serial","Serial number",["serial number","serial","serial no","sn"]],["ip","Primary IP",["primary ip","primary ip address","ip address","ip"]],
+  ["hostname","Hostname",["hostname","host name"]],["mac","MAC address",["mac address","primary mac","mac"]],["assetTag","Asset tag",["asset tag","asset"]],
+  ["os","Operating system",["operating system","operating system name","os"]],["location","Location",["location","location name","site"]],
+  ["status","Status",["configuration status","configuration status name","status"]],["warranty","Warranty expires",["warranty expires at","warranty expires","warranty expiration","warranty expiry","warranty"]],
+  ["org","Organization",["organization","organization name","client","company","customer"]],["url","IT Glue link",["resource url","url","link"]],["id","IT Glue ID",["id","configuration id","itglue id"]]];
+const normH=h=>String(h||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+function itgGuessMap(headers){ const nh=headers.map(normH), map={};
+  for(const [k,,syn] of ITG_COLS){ let i=-1; for(const sname of syn){ i=nh.indexOf(sname); if(i>=0) break; } if(i<0) for(const sname of syn){ i=nh.findIndex(h=>h.startsWith(sname+" ")||h.endsWith(" "+sname)); if(i>=0&&sname.length>3) break; i=-1; } map[k]=i; }
+  return map; }
+function itgCsvRows(csv,map){ return csv.rows.map((row,n)=>{ const c={_csv:true}; for(const [k] of ITG_COLS){ const i=map[k]; c[k]=i>=0?String(row[i]??"").trim():""; }
+  if(!/^[0-9]{1,15}$/.test(c.id)) c.id=c.id?("csv:"+c.id):""; c._key=c.id||("row"+n); c.archived=/^(true|yes|1|archived)$/i.test(row[csv.headers.findIndex(h=>normH(h)==="archived")]||""); return c; }).filter(c=>c.name&&!c.archived); }
+
+/* ---------- import / link picker ---------- */
+const Picker={
+  st:null,
+  open(opts={}){
+    const r=rack(), s=site();
+    this.st={mode:opts.linkDev?"link":"import", linkDev:opts.linkDev||null, src:itgReady()?"api":"csv", org:Team.itg?.orgId||"", rows:[], loading:false, err:"", q:opts.q||"", type:"", rackOnly:!opts.linkDev, sel:new Set(), useNames:true,
+      target:r?.id||siteRacks()[0]?.id||"", csv:null, map:null, truncated:false};
+    this.mount(); if(this.st.src==="api") this.loadApi();
+  },
+  mount(){
+    const st=this.st, d=st.linkDev?devById(rack(),st.linkDev):null;
+    $("#modalRoot").innerHTML=`<div class="veil" id="veil"><div class="modal wide itgp" role="dialog" aria-label="IT Glue">
+      <div class="tp-head"><div><h2>${st.mode==="link"?`Link ${esc(d?.name||"device")} to IT Glue`:"Import from IT Glue"}</h2>
+        <p class="hint" style="margin:2px 0 0">${st.mode==="link"?"Pick the matching IT Glue configuration. Its model, serial number and IP are copied to this device; the name and position stay as they are.":"Choose devices to add. Rack equipment goes into the rack you pick; access points go on the current floor plan."}</p></div><button class="btn" id="pkClose">Close</button></div>
+      <div class="itgp-src">${mode==="team"?`<div class="tabs"><button data-pk="src-api" class="${st.src==="api"?"on":""}" ${itgReady()?"":"disabled title='IT Glue isn&#39;t connected for this team'"}>Live from IT Glue</button><button data-pk="src-csv" class="${st.src==="csv"?"on":""}">From a CSV export</button></div>`:""}
+        <div id="pkSrc"></div></div>
+      <div class="itgp-filters"><label class="search"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9.5 9.5 13 13" stroke="currentColor" stroke-width="1.5"/></svg><input id="pkQ" placeholder="Search name, serial, IP, model…" value="${esc(st.q)}" autocomplete="off"></label>
+        <select id="pkType" aria-label="Configuration type"></select>
+        <label class="ws-check"><input type="checkbox" id="pkRackOnly" ${st.rackOnly?"checked":""}> Network and rack equipment only</label></div>
+      <div id="pkList" class="itgp-list"></div>
+      <div id="pkFoot" class="itgp-foot"></div></div></div>`;
+    $("#pkClose").onclick=closeModal; $("#veil").onclick=e=>{ if(e.target.id==="veil") closeModal(); };
+    const root=$("#modalRoot");
+    root.oninput=e=>{ if(e.target.id==="pkQ"){ st.q=e.target.value; this.list(); } };
+    root.onchange=e=>this.onChange(e); root.onclick=e=>this.onClick(e);
+    this.src(); this.list(); setTimeout(()=>$("#pkQ")?.focus(),0);
+  },
+  src(){
+    const st=this.st, el=$("#pkSrc"); if(!el) return;
+    if(st.src==="api"){
+      const orgs=itgCache.orgs;
+      el.innerHTML=`<div class="itgp-row"><label>Organization<select id="pkOrg">${orgs?`<option value="">Choose an organization…</option>${orgs.map(o=>`<option value="${o.id}"${o.id===st.org?" selected":""}>${esc(o.name)}</option>`).join("")}`:`<option>${st.loading?"Loading…":"—"}</option>`}</select></label>
+        <button class="btn" data-pk="reload" ${st.loading?"disabled":""}>${st.loading?"Loading…":"Reload"}</button></div>
+        ${st.err?`<div class="notice">${esc(st.err)}</div>`:""}`;
+    } else {
+      const c=st.csv;
+      el.innerHTML=`<div class="itgp-row"><label class="btn filebtn">${c?"Choose another CSV":"Choose CSV file…"}<input type="file" id="pkFile" accept=".csv,text/csv"></label>
+        <span class="hint" style="margin:0">${c?`${esc(c.file)} · ${c.rows.length} row${c.rows.length===1?"":"s"}`:"In IT Glue, export the organization's configurations as CSV, then choose the file here."}</span></div>
+        ${c?`<details class="itgp-map"${!st.map||st.map.name<0?" open":""}><summary>Columns ${st.map.name<0?"<span class='chip warn'>Choose the name column</span>":"<span class='chip ok'>Matched</span>"}</summary><div class="fields">${ITG_COLS.map(([k,label])=>`<label>${label}<select data-map="${k}"><option value="-1">—</option>${c.headers.map((h,i)=>`<option value="${i}"${st.map[k]===i?" selected":""}>${esc(h)}</option>`).join("")}</select></label>`).join("")}</div></details>`:""}
+        ${st.err?`<div class="notice">${esc(st.err)}</div>`:""}`;
+    }
+  },
+  async loadApi(force){
+    const st=this.st; st.loading=true; st.err=""; this.src();
+    try{ await itgOrgs(force); if(!st.org&&itgCache.orgs.length===1) st.org=itgCache.orgs[0].id; this.src();
+      if(st.org){ const r=await itgConfigs(st.org,force); st.rows=r.items; st.truncated=r.truncated; } else st.rows=[]; }
+    catch(e){ st.err=e.message; st.rows=[]; }
+    st.loading=false; this.src(); this.list();
+  },
+  filtered(){
+    const st=this.st, q=st.q.trim().toLowerCase();
+    return st.rows.filter(c=>(!st.rackOnly||!ITG_NOT_RACK.test(c.type))&&(!st.type||c.type===st.type)&&(!q||[c.name,c.serial,c.ip,c.model,c.manufacturer,c.hostname,c.location,c.assetTag,c.mac].some(v=>(v||"").toLowerCase().includes(q))));
+  },
+  list(){
+    const st=this.st, el=$("#pkList"); if(!el) return;
+    const types=[...new Set(st.rows.map(c=>c.type).filter(Boolean))].sort();
+    const ts=$("#pkType"); if(ts) ts.innerHTML=`<option value="">All types</option>${types.map(t=>`<option${t===st.type?" selected":""}>${esc(t)}</option>`).join("")}`;
+    if(st.loading&&!st.rows.length){ el.innerHTML=`<p class="hint" style="padding:16px">Loading from IT Glue…</p>`; this.foot(); return; }
+    if(!st.rows.length){ el.innerHTML=`<p class="hint" style="padding:16px">${st.src==="api"?(st.org?"No configurations found for this organization.":"Choose an organization to see its devices."):(st.csv?"No rows with a name were found. Check the column matching above.":"Choose a CSV file to see its devices.")}</p>`; this.foot(); return; }
+    const all=this.filtered(), rows=all.slice(0,300), linked=itgLinked();
+    el.innerHTML=`<table><thead><tr>${st.mode==="import"?`<th><input type="checkbox" id="pkAll" aria-label="Select all shown" ${rows.length&&rows.every(c=>st.sel.has(c._key||c.id)||linked[c.id])?"checked":""}></th>`:"<th></th>"}<th>Name</th><th>Type</th><th>Model</th><th>Serial</th><th>IP</th><th>Location</th></tr></thead><tbody>
+      ${rows.map(c=>{ const k=c._key||c.id, have=c.id&&linked[c.id]; const kind=itgKind(c.type,c.model);
+        return `<tr class="${st.sel.has(k)?"on":""}">${st.mode==="import"?`<td><input type="checkbox" data-pksel="${esc(k)}" ${st.sel.has(k)?"checked":""} ${have?"disabled":""} aria-label="Select ${esc(c.name)}"></td>`:`<td><button class="btn" data-pklink="${esc(k)}">Link</button></td>`}
+        <td><b>${esc(c.name)}</b>${have?` <span class="chip" title="Already in ${esc(have.where)} as ${esc(have.name)}">In RackGrid</span>`:""}${kind==="ap"&&st.mode==="import"?` <span class="chip">Floor plan</span>`:""}</td>
+        <td>${esc(c.type)}</td><td>${esc(itgModel(c))}</td><td class="mono">${esc(c.serial)}</td><td class="mono">${esc(c.ip)}</td><td>${esc(c.location)}</td></tr>`; }).join("")}
+      </tbody></table>${all.length>rows.length?`<p class="hint" style="padding:8px 12px">Showing 300 of ${all.length}. Search to narrow the list.</p>`:""}${st.truncated?`<p class="hint" style="padding:8px 12px">This organization has more than 10,000 configurations; only the first 10,000 were loaded.</p>`:""}`;
+    this.foot();
+  },
+  foot(){
+    const st=this.st, el=$("#pkFoot"); if(!el) return;
+    if(st.mode==="link"){ el.innerHTML=`<span class="hint" style="margin:0">${this.filtered().length} match${this.filtered().length===1?"":"es"}</span>`; return; }
+    const chosen=st.rows.filter(c=>st.sel.has(c._key||c.id)), aps=chosen.filter(c=>itgKind(c.type,c.model)==="ap").length, rk=chosen.length-aps;
+    const racks=siteRacks(), f=floor();
+    el.innerHTML=`<label class="ws-check"><input type="checkbox" id="pkNames" ${st.useNames?"checked":""}> Use IT Glue names</label>
+      <label class="itgp-row" style="margin:0">Add to<select id="pkRack">${racks.length?racks.map(r=>`<option value="${r.id}"${r.id===st.target?" selected":""}>${esc(r.name)}</option>`).join(""):`<option value="">No rack at this site</option>`}</select></label>
+      ${aps?`<span class="hint" style="margin:0">${aps} access point${aps===1?"":"s"} → ${f?esc(f.name):"no floor plan (skipped)"}</span>`:""}
+      <button class="btn primary" data-pk="import" ${chosen.length&&(!rk||st.target)?"":"disabled"}>Add ${chosen.length||""} device${chosen.length===1?"":"s"}</button>`;
+  },
+  onChange(e){
+    const st=this.st, t=e.target;
+    if(t.id==="pkOrg"){ st.org=t.value; st.sel.clear(); st.type=""; this.loadApi(); return; }
+    if(t.id==="pkType"){ st.type=t.value; this.list(); return; }
+    if(t.id==="pkRackOnly"){ st.rackOnly=t.checked; this.list(); return; }
+    if(t.id==="pkNames"){ st.useNames=t.checked; return; }
+    if(t.id==="pkRack"){ st.target=t.value; this.foot(); return; }
+    if(t.id==="pkAll"){ const linked=itgLinked(); for(const c of this.filtered().slice(0,300)){ if(c.id&&linked[c.id]) continue; const k=c._key||c.id; t.checked?st.sel.add(k):st.sel.delete(k); } this.list(); return; }
+    if(t.dataset.pksel){ t.checked?st.sel.add(t.dataset.pksel):st.sel.delete(t.dataset.pksel); t.closest("tr")?.classList.toggle("on",t.checked); this.foot(); return; }
+    if(t.dataset.map){ st.map[t.dataset.map]=+t.value; st.rows=itgCsvRows(st.csv,st.map); st.sel.clear(); this.src(); this.list(); return; }
+    if(t.id==="pkFile"){ const f=t.files[0]; if(!f) return; const fr=new FileReader();
+      fr.onload=()=>{ const rows=parseCSV(String(fr.result).replace(/^﻿/,"")); if(rows.length<2){ st.err="That file has no rows. Choose a CSV export of IT Glue configurations."; st.csv=null; st.rows=[]; this.src(); this.list(); return; }
+        st.err=""; st.csv={file:f.name,headers:rows[0],rows:rows.slice(1)}; st.map=itgGuessMap(rows[0]); st.rows=st.map.name>=0?itgCsvRows(st.csv,st.map):[]; st.sel.clear(); this.src(); this.list(); };
+      fr.readAsText(f); return; }
+  },
+  async onClick(e){
+    const st=this.st, b=e.target.closest("button"); if(!b) return;
+    const a=b.dataset.pk;
+    if(a==="src-api"||a==="src-csv"){ st.src=a.slice(4); st.rows=[]; st.sel.clear(); st.err=""; this.mount(); if(st.src==="api") this.loadApi(); else if(st.csv){ st.rows=itgCsvRows(st.csv,st.map); this.list(); } return; }
+    if(a==="reload"){ itgCache.cfg[st.org]=null; this.loadApi(true); return; }
+    if(a==="import") return this.doImport();
+    if(b.dataset.pklink){ const c=st.rows.find(x=>(x._key||x.id)===b.dataset.pklink); if(!c) return;
+      b.disabled=true; b.textContent="Linking…";
+      let full=c; if(!c._csv&&mode==="team"){ try{ full=await itgCall("configuration",{id:c.id}); }catch(err){ toast(err.message); b.disabled=false; b.textContent="Link"; return; } }
+      const r=rack(), d=devById(r,st.linkDev); if(!d){ closeModal(); return; }
+      const changed=applyItg(d,full); closeModal(); saveRack();
+      toast(`Linked ${d.name} to ${full.name}.${changed.length?` Updated ${changed.map(k=>k==="ip"?"IP":k).join(", ")} from IT Glue.`:""}`); }
+  },
+  doImport(){
+    const st=this.st, r=S.racks[st.target], s=site(), f=floor(), chosen=st.rows.filter(c=>st.sel.has(c._key||c.id));
+    let added=0, aps=0; const noRoom=[], skipped=[];
+    for(const c of chosen){ const kind=itgKind(c.type,c.model);
+      if(kind==="ap"){ if(!s||!f){ skipped.push(c.name); continue; }
+        const used=new Set(s.pins.map(p=>p.label)); const i=s.pins.filter(p=>p.kind==="ap").length;
+        const label=st.useNames&&c.name&&!used.has(c.name)?c.name:(()=>{ let k=i+1; while(used.has(`AP-${pad2(k)}`)) k++; return `AP-${pad2(k)}`; })();
+        s.pins.push({id:uid(),kind:"ap",floor:f.id,x:.06+(i%8)*.06,y:.08+Math.floor(i/8)*.08,label,room:c.location||"",model:itgModel(c),ip:c.ip||"",mac:c.mac||"",ssids:"",band:"",poe:"",range:.12,up:null,note:"",itg:itgMeta(c)});
+        aps++; continue; }
+      if(!r){ skipped.push(c.name); continue; }
+      const type=TYPES[kind]?kind:"custom", u=firstFree(r,TYPES[type].h); if(u==null){ noRoom.push(c.name); continue; }
+      const d=newDevice(r,type,u); if(type==="custom") d.kind=c.type||"Device"; applyItg(d,c,{useName:st.useNames}); r.devices.push(d); added++; }
+    if(added) persist("racks",r.id); if(aps) persist("sites",s.id);
+    closeModal(); if(added){ curId=r.id; view="rack"; } else if(aps) view="site"; render();
+    toast([added?`Added ${added} device${added===1?"":"s"} to ${r.name}.`:"", aps?`Placed ${aps} access point${aps===1?"":"s"} on ${f.name}. Drag them into position.`:"",
+      noRoom.length?`No free space for: ${noRoom.slice(0,4).join(", ")}${noRoom.length>4?"…":""}.`:"", skipped.length?`Skipped ${skipped.length}: ${(!s||!f)?"no floor plan for access points":"no rack chosen"}.`:""].filter(Boolean).join(" "));
+  },
+};
+
+/* ---------- refresh linked devices ---------- */
+async function itgRefreshDevices(list){
+  const r=rack(); if(!r||!list.length) return; let ok=0, gone=0, failed="";
+  toast(`Refreshing ${list.length} device${list.length===1?"":"s"} from IT Glue…`);
+  for(let i=0;i<list.length;i+=4) await Promise.all(list.slice(i,i+4).map(async d=>{
+    try{ const c=await itgCall("configuration",{id:d.itg.id}); applyItg(d,c); ok++; }
+    catch(e){ if(/wasn't found/.test(e.message)){ gone++; d.itg={...d.itg,missing:true}; } else failed=e.message; } }));
+  saveRack();
+  toast(failed&&!ok?failed:`Refreshed ${ok} device${ok===1?"":"s"} from IT Glue.${gone?` ${gone} no longer exist${gone===1?"s":""} in IT Glue.`:""}${failed?" "+failed:""}`);
+}
+
+/* ---------- device panel ---------- */
+function itgDeviceBox(d){
+  const g=d.itg, live=itgReady()&&g&&/^[0-9]+$/.test(g.id);
+  if(!g){ return itgReady()&&!readOnly?`<div class="itgbox none"><span><b>IT Glue</b><small>Not linked</small></span><button class="btn" data-act="itglink">Link to IT Glue…</button></div>`:""; }
+  const row=(k,v,cls="")=>v?`<dt>${k}</dt><dd class="${cls}">${v}</dd>`:"";
+  return `<div class="itgbox"><div class="itg-head"><span class="itg-logo" aria-hidden="true">IT</span><span><b>${esc(g.name||"IT Glue")}</b><small>${esc([g.org,g.type,g.status].filter(Boolean).join(" · "))}</small></span></div>
+    ${g.missing?`<div class="notice">This configuration wasn't found in IT Glue on the last refresh. It may have been archived or deleted.</div>`:""}
+    <dl>${row("Hostname",esc(g.hostname),"mono")}${row("MAC",esc(g.mac),"mono")}${row("Asset tag",esc(g.assetTag))}${row("OS",esc(g.os))}${row("Location",esc(g.location))}
+      ${row("Warranty",g.warranty?`${esc(fmtDate(g.warranty))}${warrantyPast(g.warranty)?' <span class="chip warn">Expired</span>':""}`:"")}
+      ${row("Synced",`${esc(relTime(g.syncedAt))}${g.source==="csv"?" · from CSV":""}`)}</dl>
+    ${g.interfaces?.length?`<details class="itg-if"><summary>${g.interfaces.length} interface${g.interfaces.length===1?"":"s"} in IT Glue</summary><table>${g.interfaces.map(x=>`<tr><td>${esc(x.name)}${x.primary?' <span class="chip">Primary</span>':""}</td><td class="mono">${esc(x.ip)}</td><td class="mono">${esc(x.mac)}</td></tr>`).join("")}</table></details>`:""}
+    <div class="btnrow">${live&&!readOnly?`<button class="btn" data-act="itgrefresh">Refresh from IT Glue</button>`:""}${/^https:\/\//.test(g.url)?`<a class="btn" href="${esc(g.url)}" target="_blank" rel="noopener" style="text-decoration:none">Open in IT Glue ↗</a>`:""}${readOnly?"":`<button class="btn danger" data-act="itgunlink">Unlink</button>`}</div></div>`;
+}
+
+/* ---------- site address from an IT Glue location ---------- */
+async function itgPickLocation(){
+  const s=site(); if(!s) return;
+  let org=Team.itg?.orgId||"", orgs=[];
+  const draw=(items,err,loading)=>{ $("#modalRoot").innerHTML=`<div class="veil" id="veil"><div class="modal" role="dialog" aria-label="IT Glue locations">
+    <div class="tp-head"><div><h2>Fill address from IT Glue</h2><p class="hint" style="margin:2px 0 0">Pick the IT Glue location for ${esc(s.name)}.</p></div><button class="btn" id="lcClose">Close</button></div>
+    <div class="fields"><label class="full">Organization<select id="lcOrg"><option value="">Choose…</option>${orgs.map(o=>`<option value="${o.id}"${o.id===org?" selected":""}>${esc(o.name)}</option>`).join("")}</select></label></div>
+    ${err?`<div class="notice">${esc(err)}</div>`:""}${loading?`<p class="hint">Loading…</p>`:""}
+    ${items?(items.length?`<div class="ws-list">${items.map(l=>`<button class="ws-team" data-loc="${l.id}"><span><b>${esc(l.name)}${l.primary?" (primary)":""}</b><small>${esc([l.address1,l.address2,l.city,l.region,l.postal,l.country].filter(Boolean).join(", "))}</small></span><span class="ws-go">Use →</span></button>`).join("")}</div>`:`<p class="hint">This organization has no locations in IT Glue.</p>`):""}</div></div>`;
+    $("#lcClose").onclick=closeModal; $("#veil").onclick=e=>{ if(e.target.id==="veil") closeModal(); };
+    $("#lcOrg").onchange=e=>{ org=e.target.value; load(); };
+    $("#modalRoot").querySelectorAll("[data-loc]").forEach(b=>b.onclick=()=>{ const l=items.find(x=>x.id===b.dataset.loc);
+      s.address=[[l.address1,l.address2].filter(Boolean).join(", "),[l.city,l.region].filter(Boolean).join(", ")+(l.postal?" "+l.postal:""),l.country].map(x=>x.trim()).filter(Boolean).join("\n");
+      if(l.phone&&!s.contact) s.contact=l.phone; s.itg={orgId:org,locationId:l.id,name:l.name}; closeModal(); saveSite(); toast(`Address filled from IT Glue location ${l.name}.`); }); };
+  const load=async()=>{ if(!org){ draw(null); return; } draw(null,"",true); try{ const r=await itgCall("locations",{org}); draw(r.items); }catch(e){ draw(null,e.message); } };
+  draw(null,"",true); try{ orgs=await itgOrgs(); }catch(e){ draw(null,e.message); return; } load();
+}
+
+/* ---------- team settings: connect IT Glue ---------- */
+function itgTeamSection(){
+  const g=Team.itg||{}, mgr=Team.can("manage");
+  if(g.missing) return `<h3 class="sech" style="margin-top:18px">IT Glue</h3><p class="hint">${mgr?"Run the updated <code>supabase/schema.sql</code> in Supabase to enable IT Glue, then deploy the <code>itglue</code> function (see SETUP.md).":"IT Glue isn't set up in this team's database yet."}</p>`;
+  return `<h3 class="sech" style="margin-top:18px">IT Glue</h3>
+    <p class="itg-status">${g.configured?`<span class="chip ok">Connected</span> ${esc((ITG_REGIONS.find(r=>r[0]===g.region)||[,""])[1])} · key ending <span class="mono">${esc(g.hint)}</span>`:`<span class="chip">Not connected</span>`}</p>
+    ${mgr?`<div class="fields"><label>Data center<select id="tpItgRegion">${ITG_REGIONS.map(([k,l])=>`<option value="${k}"${(g.region||"us")===k?" selected":""}>${l}</option>`).join("")}</select></label>
+      <label>API key<input id="tpItgKey" type="password" autocomplete="off" placeholder="${g.configured?"Paste a new key to replace it":"ITG.…"}"></label></div>
+      <div class="btnrow"><button class="btn primary" data-tp="itgsave" ${Team.online?"":"disabled"}>${g.configured?"Save and test":"Connect"}</button>${g.configured?`<button class="btn" data-tp="itgtest">Test connection</button><button class="btn danger${armed==="itgclear"?" arm":""}" data-tp="itgclear">${armed==="itgclear"?"Click again to disconnect":"Disconnect"}</button>`:""}</div>
+      <p class="hint" id="tpItgMsg" role="status">${esc(TeamPanel.itgMsg||"")}</p>
+      ${g.configured?`<div class="fields"><label class="full">Default organization<select id="tpItgOrg"><option value="">${itgCache.orgs?"None":"Loading…"}</option>${(itgCache.orgs||[]).map(o=>`<option value="${o.id}"${o.id===g.orgId?" selected":""}>${esc(o.name)}</option>`).join("")}${g.orgId&&!itgCache.orgs?`<option value="${esc(g.orgId)}" selected>${esc(g.orgName)}</option>`:""}</select></label></div>`:""}
+      <p class="hint">In IT Glue, create a dedicated key under <b>Account → Settings → API Keys</b> and leave password access off. The key is stored encrypted in your Supabase project and can't be read back, even by owners. RackGrid only reads organizations, configurations and locations.</p>`
+    :`<p class="hint">${g.configured?`Anyone in the team can import and refresh devices from IT Glue${g.orgName?`. Default organization: ${esc(g.orgName)}`:""}.`:"Ask an owner or administrator to connect IT Glue."}</p>`}`;
+}
+async function itgTeamAction(a){
+  const say=m=>{ TeamPanel.itgMsg=m; const el=$("#tpItgMsg"); if(el) el.textContent=m; };
+  if(a==="itgsave"){ const key=$("#tpItgKey").value.trim(), region=$("#tpItgRegion").value;
+    if(!key&&!Team.itg?.configured){ say("Paste the IT Glue API key first."); return; }
+    say("Saving…"); const {error}=await sb().rpc("set_itglue",{p_team:Team.id,p_key:key,p_region:region}); if(error){ say(errText(error)); return; }
+    $("#tpItgKey").value=""; itgCache.orgs=null; itgCache.cfg={}; await Team.loadItg(); say("Saved. Testing the connection…"); TeamPanel.render(); return itgTeamAction("itgtest"); }
+  if(a==="itgtest"){ say("Testing…"); try{ const r=await itgCall("test"); say(`Connected. IT Glue returned ${r.organizations} organization${r.organizations===1?"":"s"}.`); itgOrgs(true).then(()=>TeamPanel.render()).catch(()=>{}); }catch(e){ say(e.message); } return; }
+  if(a==="itgclear"){ if(armed!=="itgclear"){ armed="itgclear"; TeamPanel.render(); return; } armed=null; const {error}=await sb().rpc("clear_itglue",{p_team:Team.id}); if(error){ say(errText(error)); return; }
+    itgCache.orgs=null; itgCache.cfg={}; await Team.loadItg(); say("IT Glue disconnected. The key was deleted."); TeamPanel.render(); return; }
+}
+
+if(window.RG_DEBUG) window.__rg={S,Team,Workspace,Picker,itgCache,get view(){ return view; }};
 render(); boot();
 })();
 </script>

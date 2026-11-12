@@ -310,3 +310,96 @@ begin
     end if;
   end loop;
 end $$;
+
+-- ─────────────────────────────────────────────────────────────
+-- IT Glue integration (optional)
+-- The API key is stored encrypted in Supabase Vault. Nobody can read it back,
+-- not even owners: only the "itglue" Edge Function (service role) can use it.
+-- ─────────────────────────────────────────────────────────────
+do $$ begin
+  create extension if not exists supabase_vault;
+exception when others then raise notice 'Supabase Vault is not available here: %', sqlerrm;
+end $$;
+
+create table if not exists public.team_integrations (
+  team_id           uuid primary key references public.teams(id) on delete cascade,
+  itglue_region     text not null default 'us' check (itglue_region in ('us','eu','au')),
+  itglue_secret_id  uuid,
+  itglue_key_hint   text not null default '',
+  itglue_org_id     text not null default '',
+  itglue_org_name   text not null default '',
+  updated_by        uuid references auth.users(id) on delete set null,
+  updated_at        timestamptz not null default now()
+);
+alter table public.team_integrations enable row level security;
+drop policy if exists "members read integrations" on public.team_integrations;
+create policy "members read integrations" on public.team_integrations for select to authenticated using (public.is_team_member(team_id));
+
+create or replace function public.set_itglue(p_team uuid, p_key text, p_region text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare sid uuid; k text := nullif(trim(coalesce(p_key,'')),''); nm text;
+begin
+  if not public.is_team_admin(p_team) then raise exception 'Only owners and administrators can connect IT Glue'; end if;
+  if p_region not in ('us','eu','au') then raise exception 'Choose the US, EU or Australia data center'; end if;
+  insert into public.team_integrations(team_id) values (p_team) on conflict (team_id) do nothing;
+  select itglue_secret_id into sid from public.team_integrations where team_id = p_team;
+  if k is not null then
+    if length(k) < 20 or k ~ '\s' then raise exception 'That doesn''t look like an IT Glue API key'; end if;
+    if sid is null then
+      sid := vault.create_secret(k, 'rackgrid_itglue_' || p_team::text || '_' || substr(md5(random()::text),1,6), 'RackGrid IT Glue API key');
+    else
+      perform vault.update_secret(sid, k);
+    end if;
+  elsif sid is null then
+    raise exception 'Paste the IT Glue API key';
+  end if;
+  update public.team_integrations
+     set itglue_region = p_region, itglue_secret_id = sid,
+         itglue_key_hint = case when k is null then itglue_key_hint else right(k,4) end,
+         updated_by = auth.uid(), updated_at = now()
+   where team_id = p_team;
+  select display_name into nm from public.team_members where team_id = p_team and user_id = auth.uid();
+  insert into public.activity(team_id, user_id, user_name, target_type, summary)
+    values (p_team, auth.uid(), coalesce(nm,''), 'team', case when k is null then 'changed the IT Glue data center' else 'connected IT Glue' end);
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function public.set_itglue_org(p_team uuid, p_org_id text, p_org_name text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_team_admin(p_team) then raise exception 'Only owners and administrators can change this'; end if;
+  if coalesce(p_org_id,'') !~ '^[0-9]{0,15}$' then raise exception 'Unknown organization'; end if;
+  update public.team_integrations set itglue_org_id = coalesce(p_org_id,''), itglue_org_name = left(coalesce(p_org_name,''),200), updated_by = auth.uid(), updated_at = now() where team_id = p_team;
+end $$;
+
+create or replace function public.clear_itglue(p_team uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare sid uuid; nm text;
+begin
+  if not public.is_team_admin(p_team) then raise exception 'Only owners and administrators can disconnect IT Glue'; end if;
+  select itglue_secret_id into sid from public.team_integrations where team_id = p_team;
+  if sid is not null then
+    begin delete from vault.secrets where id = sid; exception when others then perform vault.update_secret(sid, 'removed'); end;
+  end if;
+  delete from public.team_integrations where team_id = p_team;
+  select display_name into nm from public.team_members where team_id = p_team and user_id = auth.uid();
+  insert into public.activity(team_id, user_id, user_name, target_type, summary) values (p_team, auth.uid(), coalesce(nm,''), 'team', 'disconnected IT Glue');
+end $$;
+
+-- Used only by the itglue Edge Function with the service role key.
+create or replace function public.itglue_credentials(p_team uuid) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare r public.team_integrations; k text;
+begin
+  select * into r from public.team_integrations where team_id = p_team;
+  if not found or r.itglue_secret_id is null then return null; end if;
+  select decrypted_secret into k from vault.decrypted_secrets where id = r.itglue_secret_id;
+  if k is null or k = 'removed' then return null; end if;
+  return jsonb_build_object('key', k, 'region', r.itglue_region);
+end $$;
+
+revoke all on function public.set_itglue(uuid,text,text), public.set_itglue_org(uuid,text,text), public.clear_itglue(uuid), public.itglue_credentials(uuid) from public, anon;
+grant execute on function public.set_itglue(uuid,text,text), public.set_itglue_org(uuid,text,text), public.clear_itglue(uuid) to authenticated;
+revoke all on function public.itglue_credentials(uuid) from authenticated;
+grant execute on function public.itglue_credentials(uuid) to service_role;
+grant execute on function public.team_role(uuid) to authenticated;
