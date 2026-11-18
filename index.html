@@ -96,6 +96,49 @@ button{cursor:pointer}
 
 .stage{flex:1;overflow:auto;padding:24px 16px 40px}
 .rackwrap{position:relative;margin:0 auto;width:max-content;padding-right:100px}
+.rack .rgrip{position:absolute;left:40px;right:14px;height:14px;border:0;background:transparent;padding:0;cursor:ns-resize;display:flex;align-items:center;justify-content:center;z-index:4;touch-action:none}
+.rack .rgrip.top{top:0}.rack .rgrip.bottom{bottom:0}
+.rack .rgrip i{width:56px;height:4px;border-radius:2px;background:var(--port-edge);opacity:.35;transition:opacity .12s,width .12s}
+.rack .rgrip:hover i,.rack .rgrip:focus-visible i,.rack .rgrip.on i{opacity:1;width:80px;background:var(--accent)}
+.growghost{position:absolute;left:-10px;right:-10px;z-index:6;pointer-events:none;border:2px dashed var(--accent);background:var(--accent-soft);border-radius:3px}
+.growghost.cut{border-color:var(--warn);background:repeating-linear-gradient(135deg,rgba(214,64,58,.18) 0 6px,transparent 6px 12px)}
+.growghost::after{content:attr(data-label);position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;font:600 11px var(--f-mono);background:var(--ink);color:var(--panel);padding:3px 8px;border-radius:4px}
+.growghost.e-top::after{bottom:4px}
+.growghost.e-bottom::after{top:4px}
+.growghost.e-top[style*="height: 0px"]::after{bottom:auto;top:-26px}
+.growghost.e-bottom[style*="height: 0px"]::after{top:4px}
+.growghost.lim{border-color:var(--warn)}
+.growbox{display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 8px;align-items:center;margin-bottom:6px}
+.growbox span{font-size:12px;color:var(--muted);font-weight:600}
+.growbox .btn{padding:5px 8px}
+/* rack types */
+.rack.k-open4,.rack.k-open2,.rack.k-wallopen{background:transparent;border-style:dashed}
+.rack.k-open4 .body,.rack.k-open2 .body,.rack.k-wallopen .body{background:repeating-linear-gradient(0deg,transparent 0 33px,var(--line) 33px 34px)}
+.rack.k-open2 .body{border-left-width:14px;border-right-width:14px}
+.rack.k-open2::after{content:"";position:absolute;left:30px;right:6px;bottom:-9px;height:9px;background:var(--rail);border-radius:2px}
+.rack.wallmount{border-radius:12px;border-width:2px}
+.rack.wallmount::before{content:"";position:absolute;left:-16px;top:-14px;bottom:-14px;width:9px;border-radius:2px;background:repeating-linear-gradient(135deg,var(--muted) 0 1.5px,transparent 1.5px 6px);opacity:.55}
+.rack.k-wallswing .body{box-shadow:inset -6px 0 0 var(--soft)}
+.mrack.wall{align-self:flex-start}
+.multi .rack.k-open4 .body,.multi .rack.k-open2 .body,.multi .rack.k-wallopen .body{background:repeating-linear-gradient(0deg,transparent 0 19px,var(--line) 19px 20px)}
+.pin.rk.wl i{border-radius:8px;background:#fff;border-color:#15202b}
+.pin.rk.wl i::after{background:repeating-linear-gradient(#15202b 0 2px,transparent 2px 5px)}
+.rkpick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.rkpick button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:10px;min-width:0}
+.rkpick button.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--accent-soft)}
+.rkpick b{font-size:13px}.rkpick small{font-size:11px;color:var(--muted)}
+.rkico{display:block;width:34px;height:40px;margin-bottom:6px;position:relative}
+.rkico i{position:absolute;inset:0;border:2px solid var(--ink);border-radius:3px;background:repeating-linear-gradient(0deg,transparent 0 5px,var(--line) 5px 7px)}
+.rkico.k-open4 i,.rkico.k-wallopen i{border-style:dashed;background:repeating-linear-gradient(0deg,transparent 0 5px,var(--line) 5px 6px)}
+.rkico.k-open2 i{border-top:0;border-bottom:0;border-left-width:4px;border-right-width:4px;border-radius:0}
+.rkico.k-open2::after{content:"";position:absolute;left:-3px;right:-3px;bottom:-3px;height:3px;background:var(--ink)}
+.rkico.k-wall,.rkico.k-wallopen,.rkico.k-wallswing{height:24px;margin-top:8px;margin-bottom:14px;margin-left:8px}
+.rkico.k-wall::before,.rkico.k-wallopen::before,.rkico.k-wallswing::before{content:"";position:absolute;left:-8px;top:-10px;bottom:-10px;width:4px;background:repeating-linear-gradient(135deg,var(--muted) 0 1px,transparent 1px 4px)}
+.rkico.k-wallswing i{border-right-width:5px}
+#rkSizes{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 4px}
+#rkSizes .chipbtn{padding:3px 9px;font-size:12px}
+#rkSizes .chipbtn.on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+@media (max-width:560px){ .rkpick{grid-template-columns:repeat(2,1fr)} }
 .rackwrap.xstub{padding-top:calc(var(--xs,1) * 13px + 16px)}
 .allwrap{position:relative;margin:0 auto;width:max-content;padding:62px 64px 10px 0}
 .allwrap .tray{position:absolute;left:30px;right:16px;top:6px;height:46px;border:1.5px dashed var(--line);border-radius:6px;z-index:0}
@@ -628,6 +671,36 @@ function devById(r,id){ return r?.devices.find(d => d.id === id); }
 function makePorts(spec){ const out=[]; let n=1; for(const [kind,count] of spec) for(let i=0;i<count;i++) out.push({n:n++,kind,label:"",ip:"",vlan:"",mac:"",link:null,ext:"",cable:"",color:"",len:"",note:""}); return out; }
 function nextName(r,type){ const code=TYPES[type]?.code||"DEV"; let i=1; const names=new Set(r.devices.map(d=>d.name)); while(names.has(code+pad2(i))) i++; return code+pad2(i); }
 function fits(r,u,h,ignore){ if(u<1||u+h-1>r.units) return false; return !r.devices.some(d => d.id!==ignore && u <= d.u+d.h-1 && d.u <= u+h-1); }
+/* rack types and unit numbering */
+const RACK_KINDS={
+  cabinet:{label:"Floor cabinet (enclosed, 4-post)",short:"Floor cabinet",desc:"Stands on the floor, with doors and side panels",units:42},
+  open4:{label:"Open frame, 4-post",short:"4-post open frame",desc:"Four posts, no doors or sides",units:42},
+  open2:{label:"Open frame, 2-post (relay rack)",short:"2-post relay rack",desc:"Two posts, common in telecom closets",units:45},
+  wall:{label:"Wall-mount cabinet",short:"Wall-mount cabinet",desc:"Hangs on the wall, with a door",units:12},
+  wallopen:{label:"Wall-mount open bracket",short:"Wall-mount bracket",desc:"Hangs on the wall, open",units:6},
+  wallswing:{label:"Wall-mount swing-out cabinet",short:"Swing-out wall cabinet",desc:"Front section swings out for rear access",units:15},
+};
+const rkind = r => RACK_KINDS[r?.kind] || RACK_KINDS.cabinet;
+const isWall = r => /^wall/.test(r?.kind||"");
+const MAXU=60;
+// U numbers are stored bottom-up (U1 at the bottom). Racks numbered top-down only change what's shown.
+const un = (r,u) => r?.numbering==="top" ? r.units-u+1 : u;
+function uSpan(r,u,h=1){ const a=un(r,u), b=un(r,u+h-1); const lo=Math.min(a,b), hi=Math.max(a,b); return `U${lo}${h>1?"–"+hi:""}`; }
+const topUsed = r => Math.max(0,...r.devices.map(d=>d.u+d.h-1));
+const lowUsed = r => r.devices.length ? Math.min(...r.devices.map(d=>d.u)) : r.units+1;
+// grow (+) or shrink (−) a rack at the top or the bottom; devices keep their place in the rack
+function growLimits(r,edge){ const min = edge==="top" ? Math.max(1,topUsed(r))-r.units : -(Math.min(lowUsed(r),r.units+1)-1);
+  return {min:Math.max(min,1-r.units), max:MAXU-r.units}; }
+function growRack(r,edge,delta){
+  const lim=growLimits(r,edge); if(delta<lim.min||delta>lim.max||!delta) return false;
+  r.units+=delta; if(edge==="bottom") for(const d of r.devices) d.u+=delta;
+  sel.slot=null; return true; }
+function growMsg(r,edge,delta){ const n=Math.abs(delta);
+  return `${delta>0?"Added":"Removed"} ${n}U at the ${edge} of ${r.name}. It's now ${r.units}U.${edge==="bottom"&&r.devices.length&&r.numbering!=="top"?` Device unit numbers moved ${delta>0?"up":"down"} by ${n}.`:""}${edge==="top"&&r.devices.length&&r.numbering==="top"?` Device unit numbers moved ${delta>0?"down":"up"} by ${n}.`:""}`; }
+function growBlocked(r,edge,delta){ const lim=growLimits(r,edge);
+  if(delta>lim.max) return `Racks can be up to ${MAXU}U.`;
+  if(delta<lim.min) return r.units+delta<1?"A rack needs at least 1U.":`A device sits in the ${edge} unit${edge==="top"?"":"s"}. Move it before removing units there.`;
+  return ""; }
 function firstFree(r,h){ for(let top=r.units; top>=h; top--){ const u=top-h+1; if(fits(r,u,h)) return u; } return null; }
 function newDevice(r,type,u){ const t=TYPES[type]; return {id:uid(),name:nextName(r,type),type,u,h:t.h,model:"",serial:"",ip:"",notes:"",ports:makePorts(t.ports)}; }
 const today = () => new Date().toISOString().slice(0,10);
@@ -719,7 +792,7 @@ function nextDevLabel(s,cat){ const code=(DEV_CATS[cat]||DEV_CATS.other).code, u
 let lastCat="pc";
 function siteIps(){ const map={}; const add=(ip,x)=>{ ip=(ip||"").trim(); if(ip) (map[ip] ||= []).push(x); };
   for(const r of siteRacks()) for(const d of r.devices){ add(d.ip,1); d.ports.forEach(pt=>add(pt.ip,1)); }
-  for(const p of (site()?.pins||[])){ for(const x of jp(p)) add(x.eip,1); if(hasUp(p)) add(p.ip,1); }
+  const s=site(); for(const p of (s?.pins||[])){ jp(p).forEach((x,j)=>{ const on=apOnJack(s,p,j); if(on&&(on.ip||"").trim()===(x.eip||"").trim()) return; add(x.eip,1); }); if(hasUp(p)) add(p.ip,1); }
   return map; }
 function dupSet(){ const m=siteIps(), s=new Set(); for(const k in m) if(m[k].length>1) s.add(k); return s; }
 
@@ -854,7 +927,7 @@ function renderBar(){
   if(!r){ $("#rackTitle").textContent = loaded ? "No rack selected" : "Loading…"; $("#rackSub").textContent=s?s.name:""; return; }
   $("#rackTitle").textContent=r.name;
   const used=r.devices.reduce((a,d)=>a+d.h,0);
-  $("#rackSub").textContent=`${s?s.name+" · ":""}${r.location?r.location+" · ":""}${r.units}U · ${used}U used · ${r.devices.length} devices`;
+  $("#rackSub").textContent=`${s?s.name+" · ":""}${r.location?r.location+" · ":""}${rkind(r).short} · ${r.units}U${r.width&&r.width!=="19"?` · ${r.width}″`:""} · ${used}U used · ${r.devices.length} devices`;
 }
 
 /* site view */
@@ -895,12 +968,12 @@ function renderSite(){
           const tip=`Access point ${p.label}${p.model?" · "+p.model:""}${p.ip?" · "+p.ip:""}${sw?` → ${portName(sw.d,sw.pi)}`:at?.jack?` → wall port ${jname(at.jack,at.j)}`:" · not connected"}`;
           return `<button class="${cls.join(" ")}" data-pin="${p.id}" style="left:${p.x*100}%;top:${p.y*100}%" title="${esc(tip)}" aria-label="${esc(tip)}"><i><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8.2a10 10 0 0 1 14 0M5.6 10.9a6.3 6.3 0 0 1 8.8 0M8.2 13.5a2.6 2.6 0 0 1 3.6 0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="10" cy="15.6" r="1.3" fill="currentColor"/></svg></i><span>${esc(p.label||"AP")}</span></button>`; }
         const ports=jp(p), nOn=ports.filter((_,j)=>trace(p,j)).length;
-        const cls=["pin",p.kind==="rack"?"rk":"",nOn?"on":"",nOn&&nOn<ports.length?"part":"",sel.pin===p.id?"sel":""]; if(q){ if(matchPin(p)) cls.push("hit"); else cls.push("dim"); }
+        const cls=["pin",p.kind==="rack"?"rk":"",p.kind==="rack"&&isWall(S.racks[p.rack])?"wl":"",nOn?"on":"",nOn&&nOn<ports.length?"part":"",sel.pin===p.id?"sel":""]; if(q){ if(matchPin(p)) cls.push("hit"); else cls.push("dim"); }
         const lbl=p.kind==="rack"?(S.racks[p.rack]?.name||p.label||"Rack"):(p.label||"?");
-        const tip=p.kind==="rack"?`Rack ${lbl}`:`Wall port ${lbl}${ports.length>1?` (${ports.length} ports)`:""}: `+ports.map((x,j)=>{ const t=trace(p,j); return `${ports.length>1?letter(j)+" ":""}${t?`→ ${portName(t.d,t.pi)}${t.o?` → ${portName(t.o,t.oi)}`:""}`:"not patched"}${x.endpoint?` · ${x.endpoint}`:""}`; }).join("; ");
+        const tip=p.kind==="rack"?`${isWall(S.racks[p.rack])?"Wall-mount rack":"Rack"} ${lbl}${S.racks[p.rack]?` · ${S.racks[p.rack].units}U`:""}`:`Wall port ${lbl}${ports.length>1?` (${ports.length} ports)`:""}: `+ports.map((x,j)=>{ const t=trace(p,j); return `${ports.length>1?letter(j)+" ":""}${t?`→ ${portName(t.d,t.pi)}${t.o?` → ${portName(t.o,t.oi)}`:""}`:"not patched"}${x.endpoint?` · ${x.endpoint}`:""}`; }).join("; ");
         return `<button class="${cls.join(" ")}" data-pin="${p.id}" style="left:${p.x*100}%;top:${p.y*100}%" title="${esc(tip)}" aria-label="${esc(tip)}"><i>${ports.length>1?`<b class="pn">${ports.length}</b>`:""}</i><span>${esc(lbl)}</span></button>`; }).join("")}
    </div></div>
-   <div class="legend"><span><i class="f"></i>Wall port patched to a rack</span><span><i></i>Wall port not patched</span><span><i class="nb">2</i>Number of ports on the plate</span><span><i class="r"></i>Rack location</span><span><i class="ap"></i>Access point (shaded circle: rough coverage)</span><span><i class="dv"></i>Device: filled when connected to a switch</span><span>Drag markers to move them.</span>${hiddenN?`<span style="color:var(--warn)">${hiddenN} marker${hiddenN===1?" is":"s are"} outside the cropped area. Use Rotate / crop to widen it.</span>`:""}</div>`:`<p class="hint">Add a floor to start.</p>`}
+   <div class="legend"><span><i class="f"></i>Wall port patched to a rack</span><span><i></i>Wall port not patched</span><span><i class="nb">2</i>Number of ports on the plate</span><span><i class="r"></i>Rack location (rounded: wall-mount)</span><span><i class="ap"></i>Access point (shaded circle: rough coverage)</span><span><i class="dv"></i>Device: filled when connected to a switch</span><span>Drag markers to move them.</span>${hiddenN?`<span style="color:var(--warn)">${hiddenN} marker${hiddenN===1?" is":"s are"} outside the cropped area. Use Rotate / crop to widen it.</span>`:""}</div>`:`<p class="hint">Add a floor to start.</p>`}
    ${jackTable(s)}${apTable(s)}${devTable(s)}</div>`;
 }
 function devTable(s){
@@ -974,8 +1047,8 @@ function renderRack(){
 function rackHTML(r,UH,multi){
   const dups=dupSet(), jm=jackMap(), H=r.units*UH;
   let u="", slots="";
-  for(let n=1;n<=r.units;n++){ const top=(r.units-n)*UH; u+=`<span style="top:${top+UH/2}px">${n}</span>`;
-    if(!multi) slots+=`<div class="slot${sel.slot===n?" pick":""}" data-u="${n}" style="top:${top}px;height:${UH}px">+ add at U${n}</div>`; }
+  for(let n=1;n<=r.units;n++){ const top=(r.units-n)*UH; u+=`<span style="top:${top+UH/2}px">${un(r,n)}</span>`;
+    if(!multi) slots+=`<div class="slot${sel.slot===n?" pick":""}" data-u="${n}" style="top:${top}px;height:${UH}px">+ add at U${un(r,n)}</div>`; }
   const devs=r.devices.map(d=>{
     const top=(r.units-(d.u+d.h-1))*UH, cls=["dev","type-"+d.type];
     if(sel.dev===d.id && sel.port==null) cls.push("sel");
@@ -986,7 +1059,8 @@ function rackHTML(r,UH,multi){
       : `<div class="face ${d.type==="manager"?"mgr":"blank"}"><span class="meta"><b>${esc(d.model||t.label)}</b><small>${esc(d.ip||"")}</small></span></div>`;
     return `<div class="${cls.join(" ")}" data-dev="${d.id}" style="top:${top+1}px;height:${d.h*UH-2}px"><span class="tag" title="${multi?esc(d.name):"Drag to move"}"><b>${esc(d.name)}</b></span>${face}${readOnly||multi?"":`<span class="rz" title="Drag to resize" data-rz="${d.id}"></span>`}</div>`;
   }).join("");
-  return `<div class="rack"><div class="ucol" style="height:${H}px">${u}</div><div class="body"${multi?` data-rb="${r.id}"`:` id="rbody"`} style="height:${H}px">${slots}${devs}</div></div>`;
+  const grips = multi||readOnly ? "" : `<button class="rgrip top" data-rgrip="top" title="Drag up to add units at the top, down to remove them" aria-label="Resize rack from the top"><i></i></button><button class="rgrip bottom" data-rgrip="bottom" title="Drag down to add units at the bottom, up to remove them" aria-label="Resize rack from the bottom"><i></i></button>`;
+  return `<div class="rack k-${esc(r.kind||"cabinet")}${isWall(r)?" wallmount":""}" data-w="${esc(r.width||"19")}">${grips}<div class="ucol" style="height:${H}px">${u}</div><div class="body"${multi?` data-rb="${r.id}"`:` id="rbody"`} style="height:${H}px">${slots}${devs}</div></div>`;
 }
 /* all racks at the site, side by side, so cables can be dragged between them */
 const MU=20; let mz=null; // null = fit to the window
@@ -996,10 +1070,10 @@ function renderAll(){
   st.innerHTML=`<div class="allbar"><span class="zoom"><button data-act="mzout" aria-label="Zoom out">−</button><button data-act="mzfit" title="Fit to window" id="mzlbl">Fit</button><button data-act="mzin" aria-label="Zoom in">+</button></span></div>
    <div class="allwrap multi" id="rw"><svg class="cables under" id="cablesUnder"></svg><div class="tray" id="tray"><span>Cable tray</span></div>
    <div class="mhold"><div class="mracks">${list.map(r=>{ const used=r.devices.reduce((a,d)=>a+d.h,0);
-     return `<div class="mrack${r.id===curId?" cur":""}" data-mr="${r.id}"><div class="mhead"><button class="linkbtn" data-openrack="${r.id}" title="Open ${esc(r.name)} on its own">${esc(r.name)}</button><small>${rackSite(r)?"":"unassigned · "}${used}/${r.units}U</small></div>${rackHTML(r,MU,true)}</div>`; }).join("")}</div></div>
+     return `<div class="mrack${r.id===curId?" cur":""}${isWall(r)?" wall":""}" data-mr="${r.id}"><div class="mhead"><button class="linkbtn" data-openrack="${r.id}" title="Open ${esc(r.name)} on its own">${esc(r.name)}</button><small>${rackSite(r)?"":"unassigned · "}${isWall(r)?"wall · ":r.kind==="open2"?"2-post · ":""}${used}/${r.units}U</small></div>${rackHTML(r,MU,true)}</div>`; }).join("")}</div></div>
    <svg class="cables" id="cables"></svg></div>`;
   const mr=st.querySelector(".mracks"), hold=st.querySelector(".mhold"), w=mr.offsetWidth, h=mr.offsetHeight;
-  const fit=Math.max(.5,Math.min(1,(st.clientWidth-40-70)/w)), z=mz??fit;
+  const fit=Math.max(.6,Math.min(1,(st.clientWidth-40-70)/w)), z=mz??fit;
   mr.style.transform=`scale(${z})`; hold.style.width=w*z+"px"; hold.style.height=h*z+"px"; $("#rw").dataset.z=z;
   $("#mzlbl").textContent=mz==null?`Fit · ${Math.round(z*100)}%`:`${Math.round(z*100)}%`;
   requestAnimationFrame(drawCables);
@@ -1110,7 +1184,7 @@ function renderInsp(){
   const d=devById(r,sel.dev);
   if(d && sel.port!=null && d.ports[sel.port]) return renderPortInsp(r,d,sel.port);
   if(d) return renderDevInsp(r,d);
-  if(sel.slot){ el.innerHTML=`${roNote()}<h2>Empty slot U${sel.slot}</h2><p class="sub">Choose a device to install here</p><div class="lib">${Object.entries(TYPES).map(([k,t])=>`<button data-addat="${k}"${fits(r,sel.slot,t.h)?"":" disabled style='opacity:.4;cursor:not-allowed'"}>${t.label}<small>${t.h}U</small></button>`).join("")}</div>`; return; }
+  if(sel.slot){ el.innerHTML=`${roNote()}<h2>Empty slot U${un(r,sel.slot)}</h2><p class="sub">Choose a device to install here</p><div class="lib">${Object.entries(TYPES).map(([k,t])=>`<button data-addat="${k}"${fits(r,sel.slot,t.h)?"":" disabled style='opacity:.4;cursor:not-allowed'"}>${t.label}<small>${t.h}U</small></button>`).join("")}</div>`; return; }
   const used=r.devices.reduce((a,x)=>a+x.h,0), links=cableRows(r).filter(x=>!x.pin).length, ips=ipRows(r).length, dups=dupSet().size;
   el.innerHTML=`${roNote()}<h2>${esc(r.name)}</h2><p class="sub">Rack overview</p>
    <div class="stats"><div class="stat"><b>${used}/${r.units}</b><span>Units used</span></div><div class="stat"><b>${r.devices.length}</b><span>Devices</span></div><div class="stat"><b>${links}</b><span>Cables</span></div><div class="stat"><b>${ips}</b><span>IP addresses</span></div></div>
@@ -1119,7 +1193,15 @@ function renderInsp(){
    ${dups?`<div class="notice">${dups} IP address${dups>1?"es are":" is"} assigned more than once at this site. Open Cables &amp; IPs to see where.</div>`:""}
    <div class="fields" data-scope="rack">${fld("Rack name","name",r.name,{full:true})}
    ${fld("Site","siteId",rackSite(r)||"",{full:true,select:[["","Not assigned"],...sortBy(S.sites,"name").map(id=>[id,S.sites[id].name])]})}
-   ${fld("Room / location","location",r.location||"",{full:true,ph:"e.g. Server room, 2nd floor"})}${fld("Height (U)","units",r.units,{type:"number"})}${fld("Notes","notes",r.notes||"",{area:true})}</div>
+   ${fld("Room / location","location",r.location||"",{full:true,ph:isWall(r)?"e.g. Office 104, above the door":"e.g. Server room, 2nd floor"})}
+   ${fld("Rack type","kind",r.kind||"cabinet",{full:true,select:Object.entries(RACK_KINDS).map(([k,v])=>[k,v.label])})}
+   ${fld("Height (U)","units",r.units,{type:"number"})}${fld("Unit numbering","numbering",r.numbering||"bottom",{select:[["bottom","U1 at the bottom"],["top","U1 at the top"]]})}
+   ${fld("Rail width","width",r.width||"19",{select:[["10","10-inch"],["19","19-inch"],["23","23-inch"]]})}${fld("Depth","depth",r.depth||"",{ph:"e.g. 600 mm"})}
+   ${fld("Notes","notes",r.notes||"",{area:true})}</div>
+   <div class="sech">Resize</div>
+   <div class="growbox"><span>Top</span><button class="btn" data-grow="top:1" ${readOnly?"disabled":""}>+1U</button><button class="btn" data-grow="top:-1" ${readOnly?"disabled":""}>−1U</button>
+     <span>Bottom</span><button class="btn" data-grow="bottom:1" ${readOnly?"disabled":""}>+1U</button><button class="btn" data-grow="bottom:-1" ${readOnly?"disabled":""}>−1U</button></div>
+   <p class="hint">Or drag the handle at the top or bottom edge of the rack. Devices stay where they are in the rack; only units without devices can be removed.</p>
    <p class="hint">Click a device or port to inspect it. Drag a device to move it, or select it and use the ↑ ↓ keys. Click an empty unit to install a device there.</p>
    ${(()=>{ const n=r.devices.filter(d=>/^[0-9]+$/.test(d.itg?.id||"")).length; return (itgReady()||!IN_CLAUDE)&&!readOnly?`<div class="sech">IT Glue</div><div class="btnrow" style="margin-bottom:14px"><button class="btn" data-act="itgimport">Import from IT Glue…</button>${itgReady()&&n?`<button class="btn" data-act="itgrefreshall">Refresh ${n} linked device${n===1?"":"s"}</button>`:""}</div>`:""; })()}
    <div class="btnrow">${delBtn("rack","Delete rack")}</div>`;
@@ -1136,11 +1218,11 @@ function renderAllInsp(el){
 function renderDevInsp(r,d){
   const t=TYPES[d.type]||{label:d.type}, dups=dupSet(), jm=jackMap();
   const kinds={}; d.ports.forEach(p=>kinds[p.kind]=(kinds[p.kind]||0)+1);
-  $("#insp").innerHTML=`${roNote()}<button class="back" data-back="rack">← ${view==="racks"?"All racks":esc(r.name)}</button><h2>${esc(d.name)}</h2>${view==="racks"?`<p class="sub" style="margin:-4px 0 2px">${esc(r.name)}</p>`:""}<p class="sub">${esc(d.type==="custom"&&d.kind?d.kind:t.label.replace("…",""))} · U${d.u}${d.h>1?"–"+(d.u+d.h-1):""}</p>
+  $("#insp").innerHTML=`${roNote()}<button class="back" data-back="rack">← ${view==="racks"?"All racks":esc(r.name)}</button><h2>${esc(d.name)}</h2>${view==="racks"?`<p class="sub" style="margin:-4px 0 2px">${esc(r.name)}</p>`:""}<p class="sub">${esc(d.type==="custom"&&d.kind?d.kind:t.label.replace("…",""))} · ${uSpan(r,d.u,d.h)}</p>
    <div class="fields" data-scope="dev">${fld("Name","name",d.name)}${fld("Management IP","ip",d.ip,{mono:true,ph:"10.0.0.1",bad:d.ip&&dups.has(d.ip.trim())})}
    ${fld("Model","model",d.model,{ph:"e.g. Cisco C9200-24T"})}${fld("Serial","serial",d.serial,{mono:true})}
    ${fld("Type","type",d.type,{select:Object.entries(TYPES).map(([k,v])=>[k,v.label])})}${fld("Height (U)","h",d.h,{type:"number"})}
-   ${fld("Bottom unit","u",d.u,{type:"number"})}${d.type==="custom"?fld("What is it","kind",d.kind||"",{ph:"e.g. KVM switch"}):""}
+   ${r.numbering==="top"?fld("Top unit","u",un(r,d.u+d.h-1),{type:"number"}):fld("Bottom unit","u",d.u,{type:"number"})}${d.type==="custom"?fld("What is it","kind",d.kind||"",{ph:"e.g. KVM switch"}):""}
    ${(d.type==="ups"||d.type==="battery")?`${fld("Battery installed","installed",d.installed||"",{type:"date"})}${fld("Replace battery by","replaceBy",d.replaceBy||"",{type:"date",bad:battDue(d)})}`:""}
    ${fld("Notes","notes",d.notes,{area:true})}</div>
    ${battDue(d)?`<div class="notice">The battery replacement date has passed.</div>`:""}
@@ -1322,8 +1404,35 @@ function createSite(){
   pickDefaults(); render(); toast("Site added. Fill in its name and address on the right.");
   setTimeout(()=>{ const i=$("#f_name"); i?.focus(); i?.select(); },0);
 }
-function createRack(){ if(readOnly) return; if(!site()) return createSite(); const id=uid(); const n=siteRacks().length+1;
-  S.racks[id]={id,siteId:curSite,name:"Rack "+pad2(n),location:"",units:42,notes:"",devices:[]}; curId=id; sel={dev:null,port:null,slot:null,pin:null}; view="rack"; persist("racks",id); render(); toast("Rack created. Drag devices in from the library."); }
+function openRackSetup(){
+  if(readOnly) return; if(!site()) return createSite();
+  const n=siteRacks().length+1; let kind="cabinet", touchedH=false;
+  const sizes=[4,6,9,12,15,18,22,24,27,32,36,42,45,47,48,52];
+  $("#modalRoot").innerHTML=`<div class="veil" id="veil"><div class="modal" role="dialog" aria-label="Add a rack">
+   <h2>Add a rack</h2><p class="hint">Pick the kind of rack. You can change its height later by dragging its top or bottom edge.</p>
+   <div class="rkpick" id="rkPick">${Object.entries(RACK_KINDS).map(([k,v])=>`<button type="button" data-rk="${k}" class="${k===kind?"on":""}"><span class="rkico k-${k}"><i></i></span><b>${esc(v.short)}</b><small>${esc(v.desc)}</small><small>Usually ${v.units}U</small></button>`).join("")}</div>
+   <div class="fields">
+     <label>Name<input id="rk_name" value="Rack ${pad2(n)}"></label>
+     <label>Height (U)<input id="rk_units" type="number" min="1" max="${MAXU}" value="42"></label>
+     <div class="full chips" id="rkSizes">${sizes.map(s=>`<button type="button" class="chipbtn" data-rks="${s}">${s}U</button>`).join("")}</div>
+     <label>Room / location<input id="rk_loc" placeholder="e.g. Server room"></label>
+     <label>Unit numbering<select id="rk_num"><option value="bottom">U1 at the bottom</option><option value="top">U1 at the top</option></select></label>
+     <label>Rail width<select id="rk_w"><option value="10">10-inch</option><option value="19" selected>19-inch</option><option value="23">23-inch</option></select></label>
+     <label>Depth<input id="rk_depth" placeholder="optional, e.g. 600 mm"></label>
+   </div>
+   <div class="btnrow" style="justify-content:flex-end"><button class="btn" id="rkCancel">Cancel</button><button class="btn primary" id="rkSave">Add rack</button></div></div></div>`;
+  const sync=()=>{ document.querySelectorAll("#rkPick [data-rk]").forEach(b=>b.classList.toggle("on",b.dataset.rk===kind)); const u=+$("#rk_units").value; document.querySelectorAll("#rkSizes [data-rks]").forEach(b=>b.classList.toggle("on",+b.dataset.rks===u));
+    $("#rk_loc").placeholder=/^wall/.test(kind)?"e.g. Office 104, above the door":"e.g. Server room"; };
+  $("#rkPick").onclick=e=>{ const b=e.target.closest("[data-rk]"); if(!b) return; kind=b.dataset.rk; if(!touchedH) $("#rk_units").value=RACK_KINDS[kind].units; sync(); };
+  $("#rkSizes").onclick=e=>{ const b=e.target.closest("[data-rks]"); if(!b) return; $("#rk_units").value=b.dataset.rks; touchedH=true; sync(); };
+  $("#rk_units").oninput=()=>{ touchedH=true; sync(); };
+  $("#rkCancel").onclick=closeModal;
+  $("#rkSave").onclick=()=>{ const units=Math.max(1,Math.min(MAXU,parseInt($("#rk_units").value)||RACK_KINDS[kind].units));
+    createRack({kind,units,name:$("#rk_name").value.trim(),location:$("#rk_loc").value.trim(),numbering:$("#rk_num").value,width:$("#rk_w").value,depth:$("#rk_depth").value.trim()}); closeModal(); };
+  sync(); setTimeout(()=>{ const i=$("#rk_name"); i?.focus(); i?.select(); },0);
+}
+function createRack(o={}){ if(readOnly) return; if(!site()) return createSite(); const id=uid(); const n=siteRacks().length+1;
+  S.racks[id]={id,siteId:curSite,name:o.name||"Rack "+pad2(n),location:o.location||"",units:o.units||42,kind:o.kind||"cabinet",numbering:o.numbering||"bottom",width:o.width||"19",depth:o.depth||"",notes:"",devices:[]}; curId=id; sel={dev:null,port:null,slot:null,pin:null}; view="rack"; persist("racks",id); render(); toast("Rack created. Drag devices in from the library."); }
 function nudge(d,dir){ const r=rack();
   for(let k=1;k<=r.units;k++){ const u=d.u+dir*k; if(u<1||u+d.h-1>r.units) break; if(fits(r,u,d.h,d.id)){ d.u=u; saveRack(); return; } }
   toast(`No free space ${dir>0?"above":"below"} ${d.name}.`); }
@@ -1507,7 +1616,7 @@ document.addEventListener("click",e=>{
   if(act==="syncnow"){ Team.lastError=""; Team.retry=0; Team.connect(); Team.flush(); return; }
   if(act==="actmore") return Team.loadActivity(false);
   if(act==="sample") return loadSample();
-  if(t.id==="newRack"||act==="newrack") return createRack();
+  if(t.id==="newRack"||act==="newrack") return openRackSetup();
   if(t.id==="importBtn"||act==="import") return openImport();
   if(t.id==="exportJson") return exportJson();
   if(t.id==="exportCsv") return exportCsv();
@@ -1550,6 +1659,8 @@ document.addEventListener("click",e=>{
   if(t.dataset.back==="site"){ selectPin(null); return; }
   if(t.dataset.pp!=null){ select(sel.dev,+t.dataset.pp); return; }
   if(t.dataset.goto){ const [rid,d,p]=t.dataset.goto.split(":"); if(S.racks[rid]) curId=rid; select(d,+p); return; }
+  if(t.dataset.grow){ if(readOnly||!r) return; const [edge,n]=t.dataset.grow.split(":"); const delta=+n; const why=growBlocked(r,edge,delta); if(why) return toast(why);
+    growRack(r,edge,delta); saveRack(); toast(growMsg(r,edge,delta)); return; }
   if(t.dataset.nudge){ const d=devById(r,sel.dev); if(d) nudge(d,+t.dataset.nudge); return; }
   if(t.dataset.del){ if(armed!==t.dataset.del){ armed=t.dataset.del; renderInsp(); return; }
     const k=t.dataset.del; armed=null;
@@ -1608,11 +1719,16 @@ document.addEventListener("change",e=>{
     else p[k]=v.trim();
     saveSite(); return; }
   const r=rack(); if(!r) return;
-  if(scope==="rack"){ if(k==="units"){ v=Math.max(1,Math.min(60,parseInt(v)||42)); const need=Math.max(0,...r.devices.map(d=>d.u+d.h-1)); if(v<need){ toast(`Devices reach U${need}. Move them down before shrinking the rack.`); render(); return; } }
+  if(scope==="rack"){ if(k==="units"){ const want=Math.max(1,Math.min(MAXU,parseInt(v)||r.units)), delta=want-r.units; if(!delta){ render(); return; }
+      // shrink from the top first, then from the bottom, so devices are never cut off
+      const top=Math.max(delta,growLimits(r,"top").min), rest=delta-top;
+      if(rest<growLimits(r,"bottom").min){ toast(`${r.name} needs at least ${r.devices.length?topUsed(r)-lowUsed(r)+1:1}U for its devices. Move them closer together first.`); render(); return; }
+      if(top) growRack(r,"top",top); if(rest) growRack(r,"bottom",rest); saveRack(); toast(rest?`${r.name} is now ${r.units}U. Units were removed from the top and the bottom.`:`${r.name} is now ${r.units}U.`); return; }
+    if(k==="kind"){ const was=rkind(r); r.kind=v; saveRack(); toast(`${r.name} is now a ${rkind(r).short.toLowerCase()}.${r.units===was.units&&!r.devices.length&&rkind(r).units!==r.units?` Tip: ${rkind(r).short.toLowerCase()}s are often ${rkind(r).units}U. Change the height or drag the rack's top edge.`:""}`); return; }
     r[k]=v; if(k==="siteId" && v && v!==curSite){ curSite=v; curFloor=null; toast(`Moved to ${S.sites[v].name}.`); } saveRack(); return; }
   const d=devById(r,sel.dev); if(!d) return;
   if(scope==="dev"){
-    if(k==="h"||k==="u"){ const n=parseInt(v)||1; const nu=k==="u"?n:d.u, nh=k==="h"?Math.max(1,n):d.h; if(!fits(r,nu,nh,d.id)){ toast("That would overlap another device or leave the rack."); render(); return; } d.u=nu; d.h=nh; saveRack(); return; }
+    if(k==="h"||k==="u"){ const n=parseInt(v)||1; const nu=k==="u"?(r.numbering==="top"?(r.units-n+1)-d.h+1:n):d.u, nh=k==="h"?Math.max(1,n):d.h; if(!fits(r,nu,nh,d.id)){ toast("That would overlap another device or leave the rack."); render(); return; } d.u=nu; d.h=nh; saveRack(); return; }
     if(k==="type"){ d.type=v; saveRack(); return; }
     d[k]=v.trim(); saveRack(); return; }
   if(scope==="port"){ const p=sel.port, pt=d.ports[p];
@@ -1636,10 +1752,11 @@ function snapU(clientY){ const r=rack(), b=bodyRect(); const y=clientY-b.top-pd.
   const u=(r.units-topIdx)-pd.h+1; return Math.max(1,Math.min(r.units-pd.h+1,u)); }
 function ghostAt(u,ok){ const body=$("#rbody"); if(!body) return; let g=$("#ghost"); if(!g){ g=document.createElement("div"); g.id="ghost"; g.className="ghost"; body.appendChild(g); }
   g.style.top=((rack().units-(u+pd.h-1))*UH)+"px"; g.style.height=(pd.h*UH)+"px"; g.classList.toggle("bad",!ok);
-  g.dataset.label=`U${u}${pd.h>1?"–"+(u+pd.h-1):""}${ok?"":" · occupied"}`; }
+  g.dataset.label=`${uSpan(rack(),u,pd.h)}${ok?"":" · occupied"}`; }
 function startDrag(){
   pd.started=true; document.body.classList.add("dragging-any");
   if(pd.kind==="pin"){ pd.el.classList.add("dragging"); $("#plan")?.classList.add("pinmove"); sel.pin=pd.id; const c=document.createElement("div"); c.id="dragchip"; c.className="dragchip"; c.textContent=pd.el.querySelector("span")?.textContent||"Marker"; document.body.appendChild(c); scrollLoop(); return; }
+  if(pd.kind==="grow"){ pd.el.classList.add("on"); document.querySelectorAll(".cables").forEach(x=>x.classList.add("hide")); scrollLoop(); return; }
   if(pd.kind==="resize"){ pd.el.classList.add("resizing"); document.querySelectorAll(".cables").forEach(x=>x.classList.add("hide")); sel={dev:pd.id,port:null,slot:null,pin:null}; scrollLoop(); return; }
   if(pd.kind==="port"){ pd.el.classList.add("dragsrc"); const r=S.racks[pd.r], src=devById(r,pd.d)?.ports[pd.p], pe=peer(r,src);
     pd.anchor = (pe && $(`#rw .port[data-r="${pe.r.id}"][data-d="${pe.d.id}"][data-p="${pe.i}"]`)) || pd.el;
@@ -1655,6 +1772,13 @@ function startDrag(){
 function moveDrag(e){
   lastEv={clientX:e.clientX,clientY:e.clientY};
   const st=$("#stage").getBoundingClientRect(); pd.scroll = e.clientY<st.top+48 ? -1 : e.clientY>st.bottom-48 ? 1 : 0;
+  if(pd.kind==="grow"){ const r=rack(), body=$("#rbody"); if(!r||!body) return;
+    const br=body.getBoundingClientRect(), raw=Math.round((pd.edge==="top"?br.top-e.clientY:e.clientY-br.bottom)/UH), lim=growLimits(r,pd.edge), delta=Math.max(lim.min,Math.min(lim.max,raw)); pd.delta=delta;
+    let g=$("#growGhost"); if(!g){ g=document.createElement("div"); g.id="growGhost"; body.appendChild(g); }
+    const h=Math.abs(delta)*UH; g.className="growghost e-"+pd.edge+" "+(delta<0?"cut":"add")+(raw!==delta?" lim":"");
+    if(pd.edge==="top"){ g.style.top=(delta>=0?-h:0)+"px"; g.style.bottom=""; } else { g.style.bottom=(delta>=0?-h:0)+"px"; g.style.top=""; }
+    g.style.height=h+"px"; g.dataset.label=delta?`${delta>0?"+":"−"}${Math.abs(delta)}U at the ${pd.edge} → ${r.units+delta}U${raw!==delta?(raw<delta?" · devices in the way":" · max "+MAXU+"U"):""}`:(raw!==0?"Devices in the way":"");
+    g.style.display=delta||raw?"block":"none"; return; }
   if(pd.kind==="resize"){ const r=rack(), b=bodyRect(); if(!b) return; const y=e.clientY-b.top; const at=r.units-Math.floor(y/UH);
     const u=Math.max(1,Math.min(pd.top,at)); pd.u=u; pd.h=pd.top-u+1; const ok=fits(r,u,pd.h,pd.id);
     pd.el.style.height=(pd.h*UH-2)+"px"; ghostAt(u,ok); return; }
@@ -1694,8 +1818,9 @@ function endDrag(commit){
   const p=pd; pd=null; $("#ghost")?.remove(); $("#dragchip")?.remove(); document.body.classList.remove("dragging-any");
   if(!p.started) return;
   justDragged=true; setTimeout(()=>justDragged=false,0);
+  if(p.kind==="grow"){ $("#growGhost")?.remove(); const r=rack(); if(commit&&r&&p.delta&&growRack(r,p.edge,p.delta)){ saveRack(); toast(growMsg(r,p.edge,p.delta)); return; } render(); return; }
   if(p.kind==="resize"){ const r=rack(), d=devById(r,p.id);
-    if(commit&&d){ if(fits(r,p.u,p.h,p.id)){ if(d.h!==p.h||d.u!==p.u){ d.u=p.u; d.h=p.h; saveRack(); toast(`${d.name} is now ${d.h}U (U${d.u}${d.h>1?"–"+(d.u+d.h-1):""}).`); return; } } else toast("Another device is in the way. Move it first or pick a smaller size."); }
+    if(commit&&d){ if(fits(r,p.u,p.h,p.id)){ if(d.h!==p.h||d.u!==p.u){ d.u=p.u; d.h=p.h; saveRack(); toast(`${d.name} is now ${d.h}U (${uSpan(r,d.u,d.h)}).`); return; } } else toast("Another device is in the way. Move it first or pick a smaller size."); }
     render(); return; }
   if(p.kind==="port"){ document.querySelectorAll(".drop-ok,.drop-bad").forEach(x=>x.classList.remove("drop-ok","drop-bad"));
     const ra=S.racks[p.r], rb=S.racks[p.tgt?.r]; if(commit && p.tgt && ra && rb){ const a=devById(ra,p.d), b=devById(rb,p.tgt.d); if(a&&b&&movePortEnd(ra,a,p.p,rb,b,p.tgt.p)) return; }
@@ -1704,7 +1829,7 @@ function endDrag(commit){
   const r=rack();
   if(commit && p.u!=null && r){
     if(p.kind==="dev"){ const d=devById(r,p.id); if(fits(r,p.u,p.h,p.id)){ if(d.u!==p.u){ d.u=p.u; saveRack(); const shortN=d.ports.filter((_,i)=>shortCable(r,d,i)).length;
-        toast(`${d.name} moved to U${p.u}${d.h>1?"–"+(p.u+d.h-1):""}.${shortN?` ${shortN} cable${shortN===1?" looks":"s look"} too short for the new spot (shown dashed).`:""}`); return; } }
+        toast(`${d.name} moved to ${uSpan(r,p.u,d.h)}.${shortN?` ${shortN} cable${shortN===1?" looks":"s look"} too short for the new spot (shown dashed).`:""}`); return; } }
       else toast("That space is taken. Drop it on a free gap."); }
     else { if(fits(r,p.u,p.h)){ const d=newDevice(r,p.type,p.u); r.devices.push(d); sel={dev:d.id,port:null,slot:null,pin:null}; saveRack(); afterAdd(d); return; } toast("That space is taken. Drop it on a free gap."); }
   }
@@ -1713,6 +1838,8 @@ function endDrag(commit){
 document.addEventListener("pointerdown",e=>{
   if(readOnly||e.button>0||pd) return;
   const devEl=e.target.closest(".dev"), lib=e.target.closest("#lib button[data-type]"), pinEl=e.target.closest(".pin");
+  const rgEl=e.target.closest("[data-rgrip]");
+  if(rgEl && view==="rack"){ const r=rack(); if(!r) return; pd={kind:"grow",edge:rgEl.dataset.rgrip,el:rgEl,delta:0,x:e.clientX,y:e.clientY,started:false,touch:false,u:null,scroll:0}; e.stopPropagation(); e.preventDefault(); return; }
   const rzEl=e.target.closest("[data-rz]");
   if(rzEl){ const d=devById(rack(),rzEl.dataset.rz); if(!d) return; pd={kind:"resize",id:d.id,h:d.h,top:d.u+d.h-1,el:rzEl.closest(".dev"),x:e.clientX,y:e.clientY,started:false,touch:false,u:d.u,scroll:0}; e.stopPropagation(); return; }
   const portEl=e.target.closest("#rw .port");
@@ -1769,21 +1896,27 @@ async function loadSample(){
   L2(R,sw,49,R2,sw2,24,"F-020","aqua","3 m"); L2(R2,app,0,R2,sw2,0,"C-300","green","1 m"); L2(R2,db2,0,R2,sw2,1,"C-301","green","1 m");
   L2(R2,ups2,0,R2,sw2,20,"C-302","grey","2.5 m"); L2(R,sw,44,R2,app,4,"C-310","orange","3 m"); Object.assign(app.ports[4],{label:"iLO",ip:"10.0.10.131"});
   for(let i=0;i<2;i++) L2(R2,pp2,i,R2,sw2,10+i,"C-4"+pad2(i),"blue","0.3 m");
+  // a small wall-mount cabinet out in the office, fed by fiber from the server room
+  const R3={id:uid(),siteId:"",name:"Wall Rack (sample)",location:"Office 104",units:9,kind:"wall",numbering:"bottom",width:"19",depth:"450 mm",notes:"Wall-mount sample rack.",devices:[]};
+  const add3=(type,u,model,ip)=>{ const d=newDevice(R3,type,u); d.model=model; d.ip=ip||""; R3.devices.push(d); return d; };
+  const fp3=add3("fiber",9,"Fiber patch panel"), pp3=add3("patch",8,"Cat6 patch panel · Floor 1 south"), sw3=add3("switch",7,"PoE switch 24","10.0.0.12"); add3("ups",2,"UPS 1500VA","10.0.0.32");
+  L2(R,sw,50,R3,sw3,24,"F-030","aqua","25 m"); L2(R3,fp3,0,R3,sw3,25,"F-031","aqua","0.5 m"); for(let i=0;i<4;i++) L2(R3,pp3,i,R3,sw3,i,"C-5"+pad2(i),"blue","0.3 m");
   const S2={id:uid(),name:"Head Office (sample)",address:"123 Example Street\nSample City",contact:"",notes:"Sample site. Replace with your own.",floors:[{id:uid(),name:"Ground floor",plan:null}],pins:[]};
-  R.siteId=S2.id; R2.siteId=S2.id; const fl=S2.floors[0].id;
+  R.siteId=S2.id; R2.siteId=S2.id; R3.siteId=S2.id; const fl=S2.floors[0].id;
   const J=(label,x,y,room,port,endpoint,eip)=>S2.pins.push({id:uid(),kind:"jack",floor:fl,x:x/1600,y:y/1000,label,room,ports:[{link:port==null?null:{r:R.id,d:pp.id,p:port},cable:"W-"+label,endpoint:endpoint||"",eip:eip||"",mac:""}],note:""});
   J("1-01",120,60,"Reception",0,"Reception PC","10.0.20.21"); J("1-02",380,60,"Reception",1,"Reception phone","10.0.30.11"); J("1-03",480,200,"Open office",2,"Desk 3 PC","10.0.20.33");
   J("1-04",700,580,"Open office",3,"Printer","10.0.20.50"); J("1-05",60,470,"Office 101",4); J("1-06",1140,450,"Meeting room",5,"Meeting room display","10.0.20.60"); J("1-07",620,940,"Office 103",null);
   S2.pins.push({id:uid(),kind:"rack",floor:fl,x:1330/1600,y:120/1000,label:"",room:"Server room",rack:R.id});
   S2.pins.push({id:uid(),kind:"rack",floor:fl,x:1330/1600,y:225/1000,label:"",room:"Server room",rack:R2.id});
+  S2.pins.push({id:uid(),kind:"rack",floor:fl,x:880/1600,y:700/1000,label:"",room:"Office 104",rack:R3.id});
   const byLabel=l=>S2.pins.find(p=>p.label===l);
   const DV=(cat,label,x,y,room,model,ip,jack,user)=>S2.pins.push({id:uid(),kind:"dev",cat,floor:fl,x:x/1600,y:y/1000,label,room,model,serial:"",ip,mac:"",user:user||"",up:jack?{pin:byLabel(jack).id,j:0}:null,note:""});
   DV("pc","PC-01",190,175,"Reception","Dell OptiPlex 7010","10.0.20.21","1-01","Front desk"); DV("phone","PH-01",330,260,"Reception","Yealink T54W","10.0.30.11","1-02");
   DV("printer","PRN-01",830,560,"Open office","HP LaserJet M507","10.0.20.50","1-04"); DV("display","TV-01",1240,520,"Meeting room","Samsung 65\" display","10.0.20.60","1-06");
   DV("camera","CAM-01",90,880,"Back door","Axis M3086-V","",null);
-  S.sites[S2.id]=S2; S.racks[R.id]=R; S.racks[R2.id]=R2; curSite=S2.id; curFloor=fl; curId=R.id; view="site";
+  S.sites[S2.id]=S2; S.racks[R.id]=R; S.racks[R2.id]=R2; S.racks[R3.id]=R3; curSite=S2.id; curFloor=fl; curId=R.id; view="site";
   try{ S2.floors[0].plan=await storePlanImage(S2,S2.floors[0],new Blob([SAMPLE_PLAN],{type:"image/svg+xml"}),"image/svg+xml",1600,1000); }catch(e){}
-  persist("sites",S2.id); persist("racks",R.id); persist("racks",R2.id); touched.clear(); render(); toast("Sample data loaded. Delete the sample site when you're ready to add your own.");
+  persist("sites",S2.id); persist("racks",R.id); persist("racks",R2.id); persist("racks",R3.id); touched.clear(); render(); toast("Sample data loaded. Delete the sample site when you're ready to add your own.");
 }
 
 /* ---------- custom device setup ---------- */
@@ -1814,7 +1947,7 @@ function openCustomSetup(id,isNew){
     let u=d.u; if(!fits(r,u,h,d.id)){ const top=d.u+d.h-1; if(fits(r,top-h+1,h,d.id)) u=top-h+1; else { const f=(()=>{ for(let t=r.units;t>=h;t--){ const uu=t-h+1; if(fits(r,uu,h,d.id)) return uu; } return null; })(); if(f==null) return toast(`There's no ${h}U gap in this rack.`); u=f; } }
     d.u=u; d.h=h; d.name=$("#cx_name").value.trim()||d.name; d.kind=$("#cx_kind").value.trim(); d.model=$("#cx_model").value.trim(); d.ip=$("#cx_ip").value.trim();
     setPortCounts(r,d,{rj45:Math.max(0,parseInt($("#cx_rj45").value)||0),sfp:Math.max(0,parseInt($("#cx_sfp").value)||0),lc:Math.max(0,parseInt($("#cx_lc").value)||0)});
-    closeModal(); sel={dev:d.id,port:null,slot:null,pin:null}; saveRack(); toast(`${d.name} ${isNew?"added":"updated"} at U${d.u}${d.h>1?"–"+(d.u+d.h-1):""}.`); };
+    closeModal(); sel={dev:d.id,port:null,slot:null,pin:null}; saveRack(); toast(`${d.name} ${isNew?"added":"updated"} at ${uSpan(r,d.u,d.h)}.`); };
   setTimeout(()=>$("#cx_kind")?.focus(),0);
 }
 
@@ -1840,7 +1973,7 @@ function parseCSV(text){ const rows=[]; let row=[],cell="",qd=false; for(let i=0
   else if(c==='"') qd=true; else if(c===","){ row.push(cell); cell=""; } else if(c==="\n"||c==="\r"){ if(c==="\r"&&text[i+1]==="\n") i++; row.push(cell); rows.push(row); row=[]; cell=""; } else cell+=c; }
   if(cell||row.length){ row.push(cell); rows.push(row); } return rows.filter(r=>r.some(x=>x.trim())); }
 function normRack(r){ const id=uid(); const map={};
-  const out={id,siteId:r.siteId||"",name:String(r.name||"Imported rack"),location:String(r.location||""),units:Math.max(1,Math.min(60,+r.units||42)),notes:String(r.notes||""),devices:[]};
+  const out={id,siteId:r.siteId||"",name:String(r.name||"Imported rack"),location:String(r.location||""),units:Math.max(1,Math.min(60,+r.units||42)),kind:RACK_KINDS[r.kind]?r.kind:"cabinet",numbering:r.numbering==="top"?"top":"bottom",width:["10","19","23"].includes(String(r.width))?String(r.width):"19",depth:String(r.depth||""),notes:String(r.notes||""),devices:[]};
   for(const d of (r.devices||[])){ const nid=uid(); map[d.id]=nid; out.devices.push({id:nid,name:String(d.name||"DEV"),type:TYPES[d.type]?d.type:"blank",u:+d.u||1,h:Math.max(1,+d.h||1),model:d.model||"",serial:d.serial||"",ip:d.ip||"",notes:d.notes||"",ports:(d.ports||[]).map((p,i)=>({n:+p.n||i+1,kind:["rj45","sfp","lc"].includes(p.kind)?p.kind:"rj45",label:p.label||"",ip:p.ip||"",vlan:p.vlan||"",mac:p.mac||"",link:p.link||null,ext:p.ext||"",cable:p.cable||"",color:p.color||"",len:p.len||"",note:p.note||""}))}); }
   for(const d of out.devices) for(const p of d.ports) if(p.link) p.link = (p.link.r&&p.link.r!==r.id) ? {_r:String(p.link.r),_d:String(p.link.d),p:+p.link.p} : map[p.link.d] ? {d:map[p.link.d],p:+p.link.p} : null;
   return {rack:out,map}; }
@@ -2267,17 +2400,20 @@ function diffRack(a,b){
   const out=[], nm=x=>x?.name||"rack";
   if(!a&&b) return [`created rack ${nm(b)}`]; if(a&&!b) return [`deleted rack ${nm(a)}`]; if(!a||!b) return out;
   if(a.name!==b.name) out.push(`renamed rack ${a.name} to ${b.name}`);
-  if(a.units!==b.units) out.push(`changed ${b.name} to ${b.units}U`);
+  const shift=b.units-a.units, both=b.devices.filter(d=>a.devices.some(x=>x.id===d.id)), bottomGrow=shift!==0&&both.length>0&&both.every(d=>a.devices.find(x=>x.id===d.id).u+shift===d.u);
+  if(a.units!==b.units) out.push(bottomGrow?`${shift>0?"added":"removed"} ${Math.abs(shift)}U at the bottom of ${b.name} (now ${b.units}U)`:`changed ${b.name} to ${b.units}U`);
+  if((a.kind||"cabinet")!==(b.kind||"cabinet")) out.push(`changed ${b.name} to a ${rkind(b).short.toLowerCase()}`);
+  if((a.numbering||"bottom")!==(b.numbering||"bottom")||(a.width||"19")!==(b.width||"19")||(a.depth||"")!==(b.depth||"")) out.push(`updated the specs of rack ${b.name}`);
   if((a.siteId||"")!==(b.siteId||"")) out.push(`moved rack ${b.name} to ${S.sites[b.siteId]?.name||"another site"}`);
   if((a.location||"")!==(b.location||"")||(a.notes||"")!==(b.notes||"")) out.push(`updated details of rack ${b.name}`);
   const am=new Map(a.devices.map(d=>[d.id,d])), bm=new Map(b.devices.map(d=>[d.id,d]));
-  const U=d=>`U${d.u}${d.h>1?"–"+(d.u+d.h-1):""}`;
+  const U=d=>uSpan(b,d.u,d.h);
   for(const d of b.devices) if(!am.has(d.id)) out.push(`added ${(TYPES[d.type]?.label||"device").replace("…","")} ${d.name} at ${U(d)} in ${b.name}`);
   for(const d of a.devices) if(!bm.has(d.id)) out.push(`removed ${d.name} from ${b.name}`);
   const seen=new Set();
   for(const d of b.devices){ const o=am.get(d.id); if(!o) continue;
     if(o.name!==d.name) out.push(`renamed ${o.name} to ${d.name}`);
-    if(o.u!==d.u) out.push(`moved ${d.name} from ${U(o)} to ${U(d)}`); else if(o.h!==d.h) out.push(`resized ${d.name} to ${d.h}U`);
+    if(o.u!==d.u&&!(bottomGrow&&o.u+shift===d.u)) out.push(`moved ${d.name} from ${uSpan(a,o.u,o.h)} to ${U(d)}`); else if(o.h!==d.h) out.push(`resized ${d.name} to ${d.h}U`);
     const f=["model","serial","ip","notes","type","kind","installed","replaceBy"].filter(k=>(o[k]||"")!==(d[k]||""));
     if(f.length) out.push(`updated ${d.name} (${f.map(k=>({ip:"IP",replaceBy:"battery date",installed:"battery date",kind:"kind"}[k]||k)).filter((x,i,arr)=>arr.indexOf(x)===i).join(", ")})`);
     if(o.ports.length!==d.ports.length) out.push(`changed ${d.name} to ${d.ports.length} ports`);
