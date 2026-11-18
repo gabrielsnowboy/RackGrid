@@ -312,9 +312,12 @@ begin
 end $$;
 
 -- ─────────────────────────────────────────────────────────────
--- IT Glue integration (optional)
--- The API key is stored encrypted in Supabase Vault. Nobody can read it back,
--- not even owners: only the "itglue" Edge Function (service role) can use it.
+-- IT documentation / asset platform integration (optional)
+-- IT Glue, Hudu, NinjaOne or Snipe-IT, one per team. (Other platforms: CSV import in the app.)
+-- The API key or client secret is stored encrypted in Supabase Vault. Nobody can read it back,
+-- not even owners: only the "assets" Edge Function (service role) can use it.
+-- The itglue_* column names are kept from the first version so existing teams keep working;
+-- they now hold the settings for whichever platform is connected.
 -- ─────────────────────────────────────────────────────────────
 do $$ begin
   create extension if not exists supabase_vault;
@@ -331,6 +334,14 @@ create table if not exists public.team_integrations (
   updated_by        uuid references auth.users(id) on delete set null,
   updated_at        timestamptz not null default now()
 );
+alter table public.team_integrations add column if not exists provider  text not null default 'itglue';
+alter table public.team_integrations add column if not exists base_url  text not null default '';
+alter table public.team_integrations add column if not exists client_id text not null default '';
+alter table public.team_integrations drop constraint if exists team_integrations_itglue_region_check;
+alter table public.team_integrations drop constraint if exists team_integrations_region_check;
+alter table public.team_integrations add constraint team_integrations_region_check check (itglue_region in ('', 'us','eu','au','app','us2','ca','oc'));
+alter table public.team_integrations drop constraint if exists team_integrations_provider_check;
+alter table public.team_integrations add constraint team_integrations_provider_check check (provider in ('itglue','hudu','ninjaone','snipeit'));
 alter table public.team_integrations enable row level security;
 drop policy if exists "members read integrations" on public.team_integrations;
 create policy "members read integrations" on public.team_integrations for select to authenticated using (public.is_team_member(team_id));
@@ -386,13 +397,97 @@ begin
   insert into public.activity(team_id, user_id, user_name, target_type, summary) values (p_team, auth.uid(), coalesce(nm,''), 'team', 'disconnected IT Glue');
 end $$;
 
--- Used only by the itglue Edge Function with the service role key.
-create or replace function public.itglue_credentials(p_team uuid) returns jsonb
+-- Connect or update any supported platform. p_key is the API key (IT Glue, Hudu, Snipe-IT) or the client secret (NinjaOne);
+-- leave it empty to keep the saved one when only changing other settings of the same platform.
+create or replace function public.set_integration(p_team uuid, p_provider text, p_region text, p_base_url text, p_client_id text, p_key text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare sid uuid; old_provider text; k text := nullif(trim(coalesce(p_key,'')),''); nm text; u text := trim(coalesce(p_base_url,'')); cid text := trim(coalesce(p_client_id,''));
+        label text := case p_provider when 'itglue' then 'IT Glue' when 'hudu' then 'Hudu' when 'ninjaone' then 'NinjaOne' when 'snipeit' then 'Snipe-IT' else null end;
+begin
+  if not public.is_team_admin(p_team) then raise exception 'Only owners and administrators can connect a platform'; end if;
+  if label is null then raise exception 'Choose IT Glue, Hudu, NinjaOne or Snipe-IT'; end if;
+  if p_provider = 'itglue' and coalesce(p_region,'') not in ('us','eu','au') then raise exception 'Choose the IT Glue data center'; end if;
+  if p_provider = 'ninjaone' and coalesce(p_region,'') not in ('app','us2','eu','ca','oc') then raise exception 'Choose the NinjaOne region'; end if;
+  if p_provider = 'ninjaone' and (cid = '' or length(cid) > 200 or cid ~ '\s') then raise exception 'Paste the NinjaOne client ID'; end if;
+  if p_provider in ('hudu','snipeit') then
+    u := regexp_replace(u, '/+$', '');
+    if u !~* '^https://[a-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._~/-]*)?$' then raise exception 'Enter the % address, starting with https://', label; end if;
+    if length(u) > 300 then raise exception 'That address is too long'; end if;
+  else u := ''; end if;
+  if p_provider <> 'ninjaone' then cid := ''; end if;
+  insert into public.team_integrations(team_id, provider) values (p_team, p_provider) on conflict (team_id) do nothing;
+  select itglue_secret_id, provider into sid, old_provider from public.team_integrations where team_id = p_team;
+  if k is not null then
+    if length(k) < 16 or length(k) > 4000 or k ~ '\s' then raise exception 'That doesn''t look like a % API key', label; end if;
+    if sid is null then
+      sid := vault.create_secret(k, 'rackgrid_integration_' || p_team::text || '_' || substr(md5(random()::text),1,6), 'RackGrid ' || label || ' API key');
+    else
+      perform vault.update_secret(sid, k);
+    end if;
+  elsif sid is null or old_provider <> p_provider then
+    raise exception 'Paste the % %', label, case when p_provider = 'ninjaone' then 'client secret' else 'API key' end;
+  end if;
+  update public.team_integrations
+     set provider = p_provider, itglue_region = case when p_provider in ('itglue','ninjaone') then p_region else '' end,
+         base_url = u, client_id = cid, itglue_secret_id = sid,
+         itglue_key_hint = case when k is null then itglue_key_hint else right(k,4) end,
+         itglue_org_id = case when old_provider <> p_provider then '' else itglue_org_id end,
+         itglue_org_name = case when old_provider <> p_provider then '' else itglue_org_name end,
+         updated_by = auth.uid(), updated_at = now()
+   where team_id = p_team;
+  select display_name into nm from public.team_members where team_id = p_team and user_id = auth.uid();
+  insert into public.activity(team_id, user_id, user_name, target_type, summary)
+    values (p_team, auth.uid(), coalesce(nm,''), 'team', case when k is null then 'changed the ' || label || ' settings' else 'connected ' || label end);
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function public.set_integration_org(p_team uuid, p_org_id text, p_org_name text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_team_admin(p_team) then raise exception 'Only owners and administrators can change this'; end if;
+  if coalesce(p_org_id,'') !~ '^[0-9]{0,15}$' then raise exception 'Unknown organization'; end if;
+  update public.team_integrations set itglue_org_id = coalesce(p_org_id,''), itglue_org_name = left(coalesce(p_org_name,''),200), updated_by = auth.uid(), updated_at = now() where team_id = p_team;
+end $$;
+
+create or replace function public.clear_integration(p_team uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare sid uuid; nm text; prov text;
+begin
+  if not public.is_team_admin(p_team) then raise exception 'Only owners and administrators can disconnect a platform'; end if;
+  select itglue_secret_id, provider into sid, prov from public.team_integrations where team_id = p_team;
+  if sid is not null then
+    begin delete from vault.secrets where id = sid; exception when others then perform vault.update_secret(sid, 'removed'); end;
+  end if;
+  delete from public.team_integrations where team_id = p_team;
+  select display_name into nm from public.team_members where team_id = p_team and user_id = auth.uid();
+  insert into public.activity(team_id, user_id, user_name, target_type, summary) values (p_team, auth.uid(), coalesce(nm,''), 'team',
+    'disconnected ' || case prov when 'hudu' then 'Hudu' when 'ninjaone' then 'NinjaOne' when 'snipeit' then 'Snipe-IT' else 'IT Glue' end);
+end $$;
+
+-- Used only by the "assets" Edge Function with the service role key.
+create or replace function public.integration_credentials(p_team uuid) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare r public.team_integrations; k text;
 begin
   select * into r from public.team_integrations where team_id = p_team;
   if not found or r.itglue_secret_id is null then return null; end if;
+  select decrypted_secret into k from vault.decrypted_secrets where id = r.itglue_secret_id;
+  if k is null or k = 'removed' then return null; end if;
+  return jsonb_build_object('provider', r.provider, 'key', k, 'region', r.itglue_region, 'base_url', r.base_url, 'client_id', r.client_id);
+end $$;
+
+revoke all on function public.set_integration(uuid,text,text,text,text,text), public.set_integration_org(uuid,text,text), public.clear_integration(uuid), public.integration_credentials(uuid) from public, anon;
+grant execute on function public.set_integration(uuid,text,text,text,text,text), public.set_integration_org(uuid,text,text), public.clear_integration(uuid) to authenticated;
+revoke all on function public.integration_credentials(uuid) from authenticated;
+grant execute on function public.integration_credentials(uuid) to service_role;
+
+-- Kept for the first version of the bridge (the "itglue" function). New installs use the functions above.
+create or replace function public.itglue_credentials(p_team uuid) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare r public.team_integrations; k text;
+begin
+  select * into r from public.team_integrations where team_id = p_team;
+  if not found or r.itglue_secret_id is null or r.provider <> 'itglue' then return null; end if;
   select decrypted_secret into k from vault.decrypted_secrets where id = r.itglue_secret_id;
   if k is null or k = 'removed' then return null; end if;
   return jsonb_build_object('key', k, 'region', r.itglue_region);

@@ -57,71 +57,85 @@ If you'd rather not commit the keys, leave `config.js` empty. Each person can pa
 | Invite people (as member or administrator) | ✓ | ✓ | |
 | Remove members | ✓ | ✓ (members only) | |
 | Rename the team | ✓ | ✓ | |
-| Import, link and refresh devices from IT Glue | ✓ | ✓ | ✓ |
-| Connect or disconnect IT Glue, choose the default organization | ✓ | ✓ | |
+| Import, link and refresh devices from the team's platform (IT Glue, Hudu, NinjaOne, Snipe-IT) | ✓ | ✓ | ✓ |
+| Connect, switch or disconnect the platform, choose the default organization | ✓ | ✓ | |
 | Change roles, transfer ownership | ✓ | | |
 | Delete the team | ✓ | | |
 
 Each team has one owner. To hand a team over, the owner picks **Make owner…** next to a member and becomes an administrator.
 
-## Connect IT Glue (optional)
+## Connect an IT documentation or asset platform (optional)
 
-RackGrid can read devices and site addresses from [IT Glue](https://www.itglue.com/). It only reads; it never changes anything in IT Glue.
+RackGrid can read devices and site addresses from the platform your MSP or IT team already uses. It only reads; it never changes anything there.
+
+| Platform | Live connection | What you need |
+|---|:-:|---|
+| [IT Glue](https://www.itglue.com/) | ✓ | An API key and your data center (US, EU or Australia) |
+| [Hudu](https://www.hudu.com/) | ✓ | An API key and your Hudu address, e.g. `https://yourcompany.huducloud.com` |
+| [NinjaOne](https://www.ninjaone.com/) | ✓ | An API client ID and secret, and your region |
+| [Snipe-IT](https://snipeitapp.com/) | ✓ | An API key and your Snipe-IT address |
+| N-able, Lansweeper, Freshservice, ConnectWise, Datto RMM and any other platform or spreadsheet | CSV import | A CSV export of your devices or assets |
+
+A team connects one platform at a time. CSV import works in every workspace, with or without a connection.
 
 **What RackGrid reads:**
-- **Organizations:** names.
-- **Configurations:** name, type, status, manufacturer, model, serial number, primary IP, hostname, MAC address, asset tag, operating system, location, warranty expiry, notes and the IT Glue link, plus their network interfaces.
-- **Locations:** addresses.
+- **Organizations or companies:** names.
+- **Devices / configurations / assets:** name, type or category, status, manufacturer, model, serial number, IP, hostname, MAC address, asset tag, operating system, location, warranty expiry, notes and a link back to the platform. For IT Glue, also network interfaces.
+- **Locations:** addresses. (Hudu: the company's address. NinjaOne: the location's address text.)
 
-It never requests passwords, documents, contacts or flexible assets.
+It never requests passwords, documents, contacts or other records.
 
-**How the key is protected:** the IT Glue API key never reaches anyone's browser. It's stored encrypted in Supabase Vault in your project. Only a small bridge function (`supabase/functions/itglue`) can use it, and only on behalf of a signed-in team member. Nobody can read the key back, not even the team owner: they can only replace or delete it.
+**How the key is protected:** the API key (or NinjaOne client secret) never reaches anyone's browser. It's stored encrypted in Supabase Vault in your project. Only a small bridge function (`supabase/functions/assets`) can use it, and only on behalf of a signed-in team member. Nobody can read it back, not even the team owner: they can only replace or delete it. For Hudu and Snipe-IT the bridge only connects to public `https://` addresses.
 
 ### 1. Update the database
 
-Run `supabase/schema.sql` again in **SQL Editor** (the same way as step 2 above). It adds the IT Glue settings and keeps all existing data.
+Run `supabase/schema.sql` again in **SQL Editor** (the same way as step 2 above). It adds the platform settings and keeps all existing data, including an IT Glue connection you made with an earlier version.
 
 ### 2. Deploy the bridge function
 
 **From the Supabase dashboard:**
 1. Go to **Edge Functions** → **Deploy a new function** → **Via Editor**.
-2. Name it exactly `itglue`.
-3. Replace the sample code with everything in `supabase/functions/itglue/index.ts`, then click **Deploy**.
+2. Name it exactly `assets`.
+3. Replace the sample code with everything in `supabase/functions/assets/index.ts`, then click **Deploy**.
 
-**Or with the Supabase CLI**, from this repository's folder: `supabase functions deploy itglue --project-ref <your-project-ref>`
+**Or with the Supabase CLI**, from this repository's folder: `supabase functions deploy assets --project-ref <your-project-ref>`
 
 **Recommended:** under **Edge Functions → Secrets**, add `RACKGRID_ALLOWED_ORIGINS` with your RackGrid address, e.g. `https://<your-username>.github.io`. The function then only answers requests from your copy of RackGrid.
 
-### 3. Create an IT Glue API key
+**Upgrading from the IT Glue-only version?** Deploy `assets` as above, then delete the old `itglue` function. Until `assets` is deployed, RackGrid falls back to `itglue` for IT Glue; Hudu, NinjaOne and Snipe-IT need `assets`.
 
-1. In IT Glue, go to **Account → Settings → API Keys** and generate a new custom key. Name it `RackGrid`.
-2. **Leave password access turned off.** RackGrid doesn't need it.
-3. Copy the key. IT Glue shows it only once.
+### 3. Create read-only credentials
 
-You need to be an IT Glue administrator to create API keys. API access depends on your IT Glue subscription; if you don't see **API Keys**, ask your IT Glue account manager.
+Use a dedicated key just for RackGrid, with the least access the platform allows.
+
+- **IT Glue:** **Account → Settings → API Keys** → generate a new custom key named `RackGrid`. Leave password access turned off. You need to be an IT Glue administrator, and API access depends on your subscription.
+- **Hudu:** **Admin → API Keys** → create a key named `RackGrid`. Leave password access off.
+- **NinjaOne:** **Administration → Apps → API → Client app IDs** → **Add**. Choose **API Services (machine-to-machine)**, give it only the **Monitoring** scope and the **Client Credentials** grant type, then save and copy the client ID and secret.
+- **Snipe-IT:** create a user who can only view assets, sign in as that user, then open the profile menu → **Manage API Keys** → **Create New Token**.
+
+Each platform shows the secret only once, so copy it straight away.
 
 ### 4. Connect it in RackGrid
 
-1. Open your team → **Team & invites** → **IT Glue**.
-2. Choose your IT Glue data center:
-   - United States: your IT Glue address ends in `itglue.com`
-   - Europe: `eu.itglue.com`
-   - Australia: `au.itglue.com`
-3. Paste the key and click **Connect**. RackGrid tests the connection straight away.
-4. Pick a **Default organization**, usually the client whose server room this team documents.
+1. Open your team → **Team & invites** → **IT documentation & asset platform**.
+2. Choose the **Platform**, then fill in what it asks for: the data center or region (IT Glue, NinjaOne), the address (Hudu, Snipe-IT), and the client ID (NinjaOne).
+3. Paste the key or secret and click **Connect**. RackGrid tests the connection straight away.
+4. Pick a **Default organization** (or company), usually the client whose server room this team documents.
 
-### Using IT Glue in RackGrid
+To move to another platform later, choose it in the same place and click **Switch to…**. Devices already linked to the old platform keep their details.
 
-- **Import devices:** select a rack → **Import from IT Glue…**. Pick the organization, search or filter by type, tick devices and click **Add**.
+### Using it in RackGrid
+
+- **Import devices:** select a rack → **Import from IT Glue / Hudu / NinjaOne / Snipe-IT…**. Pick the organization or company, search or filter by type, tick devices and click **Add**.
   - Switches, firewalls, servers and other rack equipment go into the first free units. Drag them into place afterwards.
   - Access points go on the current floor plan.
   - **Network and rack equipment only** hides workstations, printers, phones and virtual machines. Untick it to import PCs, printers, phones, cameras and displays too: they're placed on the current floor plan as devices, ready to drag into position. Virtual machines and software are never placed.
-- **Link an existing device:** select it → **Link to IT Glue…** → **Link**. RackGrid copies the model, serial number and management IP, and keeps the device's name and position.
-- **Refresh:** **Refresh from IT Glue** on a device, or **Refresh N linked devices** on the rack. Each device panel shows the IT Glue details: hostname, MAC, OS, location, warranty with an expiry warning, and interfaces, plus an **Open in IT Glue** link.
-- **Site address:** on the Site tab, **Fill address from IT Glue…** copies the address of an IT Glue location.
-- **Personal Workspace, or without the bridge:** click **IT Glue…** in the sidebar and choose **From a CSV export**. Export the organization's configurations from IT Glue as CSV and choose the file. RackGrid matches the columns, and you can correct the matching if needed. Devices imported this way can't be refreshed.
+- **Link an existing device:** select it → **Link to …** → **Link**. RackGrid copies the model, serial number and management IP, and keeps the device's name and position.
+- **Refresh:** **Refresh from …** on a device, or **Refresh N linked devices** on the rack. Each device panel shows the platform's details (hostname, MAC, OS, location, warranty with an expiry warning, and more) plus an **Open in …** link.
+- **Site address:** on the Site tab, **Fill address from …** copies the address of a location.
+- **CSV import (any platform, any workspace):** click **Import devices…** in the sidebar and choose **From a CSV export**. Pick where the file came from, then choose the file. RackGrid matches the columns from IT Glue, Hudu, NinjaOne, N-able, Snipe-IT, Lansweeper, Freshservice, ConnectWise and Datto exports automatically, and you can correct the matching. Only a name column is required. Devices imported from CSV can't be refreshed; import a newer export instead.
 
-IT Glue allows 3,000 API requests every 5 minutes per account. Importing one organization uses about one request per 1,000 devices; refreshing uses one request per device.
+API limits: IT Glue allows 3,000 requests every 5 minutes. Hudu, NinjaOne and Snipe-IT have their own limits. Importing an organization uses one request per page of devices (100 to 1,000 devices per page, depending on the platform); refreshing uses one or two requests per device.
 
 ## How syncing works
 
@@ -135,7 +149,9 @@ IT Glue allows 3,000 API requests every 5 minutes per account. Importing one org
 
 - **"Sync paused"** in the sidebar shows the server's reason, e.g. your account was removed from the team. Click **Retry** after fixing it.
 - **Invitation link opens the wrong page:** check that the Site URL and Redirect URLs in step 3 match the address you use.
-- **"Couldn't reach the IT Glue bridge":** check that the function is deployed and named exactly `itglue`, and that `RACKGRID_ALLOWED_ORIGINS` (if set) matches the address in your browser's address bar.
-- **"IT Glue rejected the API key":** the key was revoked or mistyped, or the data center is wrong. Paste a new key under **Team & invites → IT Glue**.
-- **The function answers "Invalid JWT":** some newer Supabase projects need **Verify JWT** turned off for the function (Edge Functions → itglue → Details). This is safe: the function checks each person's sign-in and team membership itself.
+- **"Couldn't reach the RackGrid bridge function":** check that the function is deployed and named exactly `assets`, and that `RACKGRID_ALLOWED_ORIGINS` (if set) matches the address in your browser's address bar.
+- **"… rejected the API credentials":** the key or secret was revoked or mistyped, or the data center, region or address is wrong. Paste new credentials under **Team & invites**. For NinjaOne, also check the API client uses the Client Credentials grant type with the Monitoring scope.
+- **"The platform address must be a public https:// address":** Hudu and Snipe-IT must be reachable from the internet over https for the bridge to read them. If your Snipe-IT is only on your internal network, use CSV import instead.
+- **"Run the updated supabase/schema.sql":** your database is from an earlier version. Run `schema.sql` again in the SQL Editor.
+- **The function answers "Invalid JWT":** some newer Supabase projects need **Verify JWT** turned off for the function (Edge Functions → assets → Details). This is safe: the function checks each person's sign-in and team membership itself.
 - **Live updates don't appear:** in Supabase, open **Database → Publications → supabase_realtime** and check that `docs`, `activity`, `team_members` and `teams` are enabled. Re-running `schema.sql` turns them on.

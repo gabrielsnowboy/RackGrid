@@ -19,7 +19,7 @@ Track your server racks, network cables, IP addresses, site floor plans and wall
 - **Activity history**: see who moved, added, removed, connected or patched what, and when. Filter by site, rack or person.
 - **Offline support**: keep working without a connection. Changes queue on your device and sync when you reconnect, and the app opens offline once loaded.
 - **Bring your data**: copy your Personal Workspace into a new team in one click.
-- **IT Glue**: import switches, firewalls, servers, UPS units, access points and floor equipment (PCs, printers, phones, cameras) from IT Glue, link existing devices, refresh model, serial, IP and warranty details, and fill site addresses from IT Glue locations. Teams connect live through a read-only bridge; Personal Workspace imports an IT Glue CSV export. See [SETUP.md](SETUP.md#connect-it-glue-optional).
+- **IT documentation & asset platforms**: import switches, firewalls, servers, UPS units, access points and floor equipment (PCs, printers, phones, cameras) from IT Glue, Hudu, NinjaOne or Snipe-IT, link existing devices, refresh model, serial, IP and warranty details, and fill site addresses from their locations. Teams connect live through a read-only bridge. Any workspace can import a CSV export from these or any other platform, such as N-able, Lansweeper, Freshservice, ConnectWise or Datto RMM. See [SETUP.md](SETUP.md#connect-an-it-documentation-or-asset-platform-optional).
 
 - **Sites**: switch between buildings with the site menu. Each site has an address (with an Open in Maps link), a contact, notes and floors.
 - **Floor plans**: upload a PNG, JPG, WebP, SVG or PDF for each floor, then rotate, straighten and crop it.
@@ -94,14 +94,15 @@ They **can**, unless you lock it down:
 5. **Consider a private repository.** GitHub Pages from a private repository needs a paid GitHub plan. Alternatively, leave `config.js` empty and share the URL and anon key privately; each person pastes them once on the Team Workspace screen. This keeps casual copiers from finding them, but it isn't real protection on its own, so do step 1 as well.
 6. **Review members now and then.** Remove people who have left under **Team & invites**, and keep the number of owners and administrators small.
 
-### IT Glue API key
+### IT documentation and asset platform credentials
 
-- **Never in the browser or the repository.** The key is stored encrypted in Supabase Vault in your project. Only the `itglue` bridge function can use it, and only for a signed-in member of that team. Owners can replace or delete it but can't read it back.
-- **Read-only, limited actions.** The bridge only allows listing organizations, configurations and locations, and reading a single configuration. RackGrid never requests passwords or documents, and can't change anything in IT Glue.
-- **Use a dedicated key with password access turned off.** If it's ever exposed, revoke it in IT Glue and paste a new one under **Team & invites → IT Glue**.
+- **Never in the browser or the repository.** The API key (or NinjaOne client secret) is stored encrypted in Supabase Vault in your project. Only the `assets` bridge function can use it, and only for a signed-in member of that team. Owners can replace or delete it but can't read it back.
+- **Read-only, limited actions.** The bridge only allows listing organizations, devices and locations, and reading a single device. RackGrid never requests passwords or documents, and can't change anything in IT Glue, Hudu, NinjaOne or Snipe-IT.
+- **Use dedicated, least-privilege credentials**: password access off in IT Glue and Hudu, only the Monitoring scope in NinjaOne, a view-only user in Snipe-IT. If they're ever exposed, revoke them in the platform and paste new ones under **Team & invites**.
+- **Hudu and Snipe-IT addresses** must be public `https://` addresses; the bridge refuses local and private network addresses.
 - **Limit who can call the bridge.** Set `RACKGRID_ALLOWED_ORIGINS` to your RackGrid address (see SETUP.md).
-- **Every member of a team that has IT Glue connected can read that IT Glue account's configurations**, for any organization, through RackGrid. Only connect IT Glue to teams whose members should see that data.
-- Device details copied from IT Glue (model, serial, IP, hostname, MAC, warranty) are stored with the rack, like anything else you type in.
+- **Every member of a team that has a platform connected can read that account's devices**, for any organization or company, through RackGrid. Only connect it to teams whose members should see that data.
+- Device details copied from the platform (model, serial, IP, hostname, MAC, warranty) are stored with the rack, like anything else you type in.
 
 ### Data on each computer
 
@@ -132,7 +133,7 @@ Types: `patch`, `patch48`, `fiber`, `switch`, `switch48`, `router`, `firewall`, 
 | `index.html` | The whole app |
 | `config.js` | Your Supabase project URL and anon key (optional) |
 | `supabase/schema.sql` | Database tables, security rules and functions for Team Workspaces |
-| `supabase/functions/itglue/index.ts` | Read-only IT Glue bridge (Supabase Edge Function) |
+| `supabase/functions/assets/index.ts` | Read-only bridge to IT Glue, Hudu, NinjaOne and Snipe-IT (Supabase Edge Function) |
 | `SETUP.md` | Step-by-step Team Workspace setup |
 | `sw.js`, `manifest.webmanifest`, `icon.svg` | Offline support and install-as-app |
 | `vendor/supabase.js` | Supabase client library v2.99.3, bundled so the app also works offline |
