@@ -52,7 +52,7 @@ If you'd rather not commit the keys, leave `config.js` empty. Each person can pa
 
 | | Owner | Administrator | Member |
 |---|:-:|:-:|:-:|
-| View and edit racks, sites, floor plans, wall ports and access points | ✓ | ✓ | ✓ |
+| View and edit racks, sites, floor plans, wall ports, access points and floor plan devices | ✓ | ✓ | ✓ |
 | See activity history | ✓ | ✓ | ✓ |
 | Invite people (as member or administrator) | ✓ | ✓ | |
 | Remove members | ✓ | ✓ (members only) | |
@@ -115,7 +115,7 @@ You need to be an IT Glue administrator to create API keys. API access depends o
 - **Import devices:** select a rack → **Import from IT Glue…**. Pick the organization, search or filter by type, tick devices and click **Add**.
   - Switches, firewalls, servers and other rack equipment go into the first free units. Drag them into place afterwards.
   - Access points go on the current floor plan.
-  - **Network and rack equipment only** hides workstations, printers, phones and virtual machines.
+  - **Network and rack equipment only** hides workstations, printers, phones and virtual machines. Untick it to import PCs, printers, phones, cameras and displays too: they're placed on the current floor plan as devices, ready to drag into position. Virtual machines and software are never placed.
 - **Link an existing device:** select it → **Link to IT Glue…** → **Link**. RackGrid copies the model, serial number and management IP, and keeps the device's name and position.
 - **Refresh:** **Refresh from IT Glue** on a device, or **Refresh N linked devices** on the rack. Each device panel shows the IT Glue details: hostname, MAC, OS, location, warranty with an expiry warning, and interfaces, plus an **Open in IT Glue** link.
 - **Site address:** on the Site tab, **Fill address from IT Glue…** copies the address of an IT Glue location.

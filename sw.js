@@ -1,6 +1,6 @@
 // RackGrid offline support: keeps the app itself available without a connection.
 // Your data is stored separately (local storage / IndexedDB) and synced by the app.
-const CACHE = "rackgrid-v5";
+const CACHE = "rackgrid-v6";
 const CORE = ["./", "./index.html", "./config.js", "./vendor/supabase.js", "./manifest.webmanifest"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });

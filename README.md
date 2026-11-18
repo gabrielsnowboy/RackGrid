@@ -9,25 +9,29 @@ Track your server racks, network cables, IP addresses, site floor plans and wall
 
 ![Rack view with devices, ports and cables](docs/screenshot-rack.png)
 
+![All racks view with a cable running between two racks](docs/screenshot-racks.png)
+
 ## Features
 
 - **Workspaces**: choose Personal or Team on launch, and switch any time from the sidebar.
 - **Teams**: create a team, invite people with a link or code, and give them Owner, Administrator or Member roles. You can belong to several teams.
-- **Live updates**: changes to racks, sites, floor plans, wall ports and access points appear for everyone within a second. Simultaneous edits to the same rack are merged.
+- **Live updates**: changes to racks, sites, floor plans, wall ports, access points and floor plan devices appear for everyone within a second. Simultaneous edits to the same rack are merged.
 - **Activity history**: see who moved, added, removed, connected or patched what, and when. Filter by site, rack or person.
 - **Offline support**: keep working without a connection. Changes queue on your device and sync when you reconnect, and the app opens offline once loaded.
 - **Bring your data**: copy your Personal Workspace into a new team in one click.
-- **IT Glue**: import switches, firewalls, servers, UPS units and access points from IT Glue, link existing devices, refresh model, serial, IP and warranty details, and fill site addresses from IT Glue locations. Teams connect live through a read-only bridge; Personal Workspace imports an IT Glue CSV export. See [SETUP.md](SETUP.md#connect-it-glue-optional).
+- **IT Glue**: import switches, firewalls, servers, UPS units, access points and floor equipment (PCs, printers, phones, cameras) from IT Glue, link existing devices, refresh model, serial, IP and warranty details, and fill site addresses from IT Glue locations. Teams connect live through a read-only bridge; Personal Workspace imports an IT Glue CSV export. See [SETUP.md](SETUP.md#connect-it-glue-optional).
 
 - **Sites**: switch between buildings with the site menu. Each site has an address (with an Open in Maps link), a contact, notes and floors.
 - **Floor plans**: upload a PNG, JPG, WebP, SVG or PDF for each floor, then rotate, straighten and crop it.
 - **Wall ports**: place jacks on the floor plan (1 port by default, up to 12 per plate, labelled A, B, C…) and patch each port to a patch panel port. Click a wall port to trace it: device → wall port → patch panel → switch port and VLAN.
+- **Devices on the floor plan**: place computers, printers, phones, cameras, displays, door access readers, IoT sensors and other equipment where they sit. Record model, serial, IP, MAC and who uses each one, plug it into a wall port or a rack port, and trace it to its switch port.
 - **Access points**: place wireless access points on the floor plan with model, IP, MAC, SSIDs, Wi-Fi bands, PoE and a rough coverage circle. Connect each one to a wall port or a rack port and trace it to its switch port.
 - **Racks**: drag devices from the library into rack units, drag them to move, and drag a device's bottom edge to resize it. The library includes patch panels (24 and 48 port), fiber panels, switches, routers, firewalls, servers, NAS, UPS, UPS battery packs, PDUs, cable managers, shelves, blanks and custom devices with any height and port count.
-- **Cables**: connect ports by clicking or dragging. Drag one end of a cable to another port to re-patch it while the other end stays put. Record cable ID, color and length.
-- **IP addresses**: record management IPs, port IPs and the devices plugged into wall ports. Duplicate IPs across a site are flagged.
+- **All racks**: see every rack at the site side by side, with a cable tray above them. Drag a port onto a port in another rack to run a cable between racks, or drag one end of an existing cable to another rack. Zoom to fit, or zoom in for small ports.
+- **Cables**: connect ports by clicking or dragging, within a rack or between racks. Drag one end of a cable to another port to re-patch it while the other end stays put. Record cable ID, color and length. Cables to another rack show as a line leaving the top of the rack, and RackGrid warns when a recorded length looks too short for the run.
+- **IP addresses**: record management IPs, port IPs, floor plan devices and the devices plugged into wall ports. Duplicate IPs across a site are flagged.
 - **Battery tracking**: record install and replace-by dates for UPS units and battery packs, with overdue warnings.
-- **Search** across devices, ports, wall ports, IPs, MACs and cable IDs.
+- **Search** across devices, ports, wall ports, floor plan devices, IPs, MACs and cable IDs.
 - **Import and export**: full JSON backups (including floor plan images), CSV export of cables, IPs and wall ports, and CSV import of device lists.
 - Works on desktop and mobile, in light and dark mode.
 

@@ -96,6 +96,37 @@ button{cursor:pointer}
 
 .stage{flex:1;overflow:auto;padding:24px 16px 40px}
 .rackwrap{position:relative;margin:0 auto;width:max-content;padding-right:100px}
+.rackwrap.xstub{padding-top:calc(var(--xs,1) * 13px + 16px)}
+.allwrap{position:relative;margin:0 auto;width:max-content;padding:62px 64px 10px 0}
+.allwrap .tray{position:absolute;left:30px;right:16px;top:6px;height:46px;border:1.5px dashed var(--line);border-radius:6px;z-index:0}
+.allwrap .tray span{position:absolute;left:8px;top:-8px;padding:0 6px;background:var(--bg);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.mracks{display:flex;gap:64px;align-items:flex-end;transform-origin:0 0;width:max-content}
+.allbar{display:flex;justify-content:flex-end;margin:-8px 0 6px}
+.mhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0 2px 6px 30px}
+.mhead .linkbtn{font-weight:600;font-size:13px}
+.mhead small{font-family:var(--f-mono);font-size:10.5px;color:var(--muted)}
+.mrack.cur .rack{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.multi .rack{grid-template-columns:30px 450px;padding:8px 0}
+.multi .body{margin-right:8px;border-left-width:7px;border-right-width:7px}
+.multi .ucol span{font-size:9px;right:5px}
+.multi .dev{cursor:pointer}
+.multi .dev .tag{width:22px;cursor:pointer}
+.multi .dev .tag b{font-size:9.5px}
+.multi .face{gap:6px;padding:0 6px}
+.multi .face .meta{min-width:40px;max-width:84px}
+.multi .face .meta b{font-size:10.5px}
+.multi .face .meta small{font-size:9px}
+.multi .ports{gap:5px}
+.multi .grp{gap:1.5px}
+.multi .pcol em{display:none}
+.multi .port{width:10px;height:8px;border-width:1.2px}
+.multi .port.rj45::after{left:2px;right:2px;height:2px;bottom:-1.2px;border-width:1.2px}
+.multi .port.sfp{width:13px;height:7px}
+.multi .port.lc{width:11px;height:8px;border-radius:4px}
+.multi .face.batt .cells i{width:22px;height:8px}
+.port.xr{box-shadow:0 0 0 1.5px var(--panel),0 0 0 3px var(--accent-soft)}
+.cables text.xlab{font:600 10.5px var(--f-mono);fill:var(--muted)}
+.cables text.xlab.hot{fill:var(--accent)}
 .rack{position:relative;z-index:1;display:grid;grid-template-columns:40px 680px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 0 14px 0}
 .ucol{position:relative}
 .ucol span{position:absolute;right:8px;font-family:var(--f-mono);font-size:11px;color:var(--muted);transform:translateY(-50%)}
@@ -331,6 +362,12 @@ details.jport .trace{margin-top:2px}
 .cov{position:absolute;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;z-index:1;
   background:radial-gradient(circle,rgba(11,138,107,.26) 0%,rgba(11,138,107,.14) 55%,rgba(11,138,107,.04) 100%);border:1.5px dashed rgba(11,138,107,.55)}
 .cov.sel{border-style:solid;border-color:rgba(11,138,107,.9)}
+.pin.dv i{width:24px;height:24px;border-radius:6px;background:#fff;border:2px solid #7a46c6;color:#7a46c6;display:flex;align-items:center;justify-content:center}
+.pin.dv i svg{width:15px;height:15px}
+.pin.dv i::after{display:none}
+.pin.dv.on i{background:#7a46c6;color:#fff}
+.pin.dv.part i{background:#efe6fb}
+.legend i.dv{border-color:#7a46c6;background:rgba(122,70,198,.2)}
 .legend i.ap{border-radius:50%;border-color:#0b8a6b;background:rgba(11,138,107,.18)}
 .pin.rk i{width:26px;height:26px;border-radius:4px;background:#15202b;border-color:#15202b}
 .pin.rk i::after{left:5px;right:5px;top:5px;height:auto;bottom:5px;border:0;background:repeating-linear-gradient(#fff 0 2px,transparent 2px 5px)}
@@ -531,6 +568,7 @@ body.ws-open .app{visibility:hidden}
       <div class="tabs" role="tablist">
         <button data-view="site">Site</button>
         <button data-view="rack">Rack</button>
+        <button data-view="racks">All racks</button>
         <button data-view="table">Cables &amp; IPs</button>
         <button data-view="activity" id="tabActivity" hidden>Activity</button>
       </div>
@@ -599,10 +637,10 @@ function setPortCounts(r,d,want){
   for(const k in keep) keep[k].slice(want[k]).forEach(i=>unlinkPort(r,d,i));
   const old=d.ports, map={}, np=[]; let n=1;
   for(const k of ["rj45","sfp","lc"]) for(let i=0;i<Math.min(200,want[k]||0);i++){ const oi=keep[k][i]; const pt=oi!=null?{...old[oi]}:makePorts([[k,1]])[0]; pt.n=n++; if(oi!=null) map[oi]=np.length; np.push(pt); }
-  for(const o of r.devices) o.ports.forEach(op=>{ if(op.link&&op.link.d===d.id&&o.id!==d.id) op.link.p=map[op.link.p]; });
-  np.forEach(pt=>{ if(pt.link&&pt.link.d===d.id) pt.link.p=map[pt.link.p]; });
+  for(const rr of Object.values(S.racks)) for(const o of rr.devices) if(o.id!==d.id) o.ports.forEach(op=>{ if(op.link&&op.link.d===d.id&&linkRack(rr,op.link)?.id===r.id){ op.link.p=map[op.link.p]; touch(rr); } });
+  np.forEach(pt=>{ if(pt.link&&pt.link.d===d.id&&!(pt.link.r&&pt.link.r!==r.id)) pt.link.p=map[pt.link.p]; });
   for(const x of pinsAll()){ for(const jpo of jp(x.p)) if(jpo.link?.r===r.id && jpo.link.d===d.id && jpo.link.p!=null){ const m=map[jpo.link.p]; jpo.link.p = m==null?null:m; persist("sites",x.s.id); }
-    const u=x.p.kind==="ap"?x.p.up:null; if(u?.r===r.id&&u.d===d.id&&u.p!=null){ const m=map[u.p]; u.p = m==null?null:m; persist("sites",x.s.id); } }
+    const u=hasUp(x.p)?x.p.up:null; if(u?.r===r.id&&u.d===d.id&&u.p!=null){ const m=map[u.p]; u.p = m==null?null:m; persist("sites",x.s.id); } }
   d.ports=np;
 }
 /* cable length check: recorded length vs. the run between the two devices */
@@ -610,16 +648,27 @@ function parseLen(v){ const m=String(v||"").trim().toLowerCase().replace(",","."
   const n=parseFloat(m[1]); if(!isFinite(n)) return null; const u=m[2]||"m";
   return u==="cm"?n/100 : u==="mm"?n/1000 : (u==="ft"||u==="feet"||u==="foot"||u==="'")?n*.3048 : (u.startsWith("in")||u==='"')?n*.0254 : n; }
 function runLen(a,b){ const du=Math.abs((a.u+(a.h-1)/2)-(b.u+(b.h-1)/2)); return du*.04445 + (du<=2 ? .15 : .5); }
-function shortCable(r,d,p){ const pt=d.ports[p]; if(!pt?.link) return null; const o=devById(r,pt.link.d), have=parseLen(pt.len); if(!o||have==null) return null;
-  const need=runLen(d,o); return have+.005<need ? {have,need,o,op:pt.link.p} : null; }
+// between racks: up to the top of each rack, along the tray (about 0.6 m per rack position), plus slack
+function crossLen(ra,a,rb,b){ const ids=sortBy(S.racks,"name").filter(id=>rackSite(S.racks[id])===rackSite(ra)); const ia=ids.indexOf(ra.id), ib=ids.indexOf(rb.id);
+  const gap=(ia<0||ib<0)?1:Math.max(1,Math.abs(ia-ib)); const up=(r,d)=>Math.max(0,r.units-(d.u+(d.h-1)/2))*.04445+.3; return up(ra,a)+up(rb,b)+gap*.6+.5; }
+function shortCable(r,d,p){ const pt=d.ports[p]; const pe=peer(r,pt); const have=parseLen(pt?.len); if(!pe||have==null) return null;
+  const need=pe.cross?crossLen(r,d,pe.r,pe.d):runLen(d,pe.d); return have+.005<need ? {have,need,o:pe.d,op:pe.i,or:pe.r,cross:pe.cross} : null; }
 const fmtM = m => m<1 ? Math.round(m*100)+" cm" : m.toFixed(1).replace(/\.0$/,"")+" m";
 function portName(d,p){ const pt=d.ports[p]; if(!pt) return d.name+" · ?"; return `${d.name} · ${pt.kind==="sfp"?"SFP ":""}${pt.n}${pt.label?` (${pt.label})`:""}`; }
 
-function unlinkPort(r,d,p){ const pt=d.ports[p]; if(pt.link){ const o=devById(r,pt.link.d); if(o&&o.ports[pt.link.p]){ const op=o.ports[pt.link.p]; if(op.link&&op.link.d===d.id&&op.link.p===p) op.link=null; } pt.link=null; } }
-function linkPorts(r,a,pa,b,pb){ unlinkPort(r,a,pa); unlinkPort(r,b,pb); a.ports[pa].ext=""; b.ports[pb].ext="";
-  a.ports[pa].link={d:b.id,p:pb}; b.ports[pb].link={d:a.id,p:pa};
+/* cable ends: port.link is {d,p} for a port in the same rack, or {r,d,p} for a port in another rack */
+const linkRack=(r,l)=> l?.r && l.r!==r?.id ? S.racks[l.r] : r;
+function peer(r,pt){ const l=pt?.link; if(!l) return null; const pr=linkRack(r,l); const pdv=pr&&devById(pr,l.d); if(!pdv||!pdv.ports[l.p]) return null; return {r:pr,d:pdv,i:l.p,pt:pdv.ports[l.p],cross:pr.id!==r.id}; }
+const mkLink=(from,to,d,p)=> to.id===from.id ? {d:d.id,p} : {r:to.id,d:d.id,p};
+const pointsAt=(r,pt,rb,b,j)=>{ const l=pt?.link; return !!l && l.d===b.id && l.p===j && linkRack(r,l)?.id===rb.id; };
+const touched=new Set(); const touch=r=>{ if(r) touched.add(r.id); };
+function peerName(r,pe){ return pe ? (pe.r.id!==r.id?`${pe.r.name} · `:"")+portName(pe.d,pe.i) : "another port"; }
+function siteRacksOf(r){ const a=rackSite(r); return sortBy(S.racks,"name").map(id=>S.racks[id]).filter(x=>{ const b=rackSite(x); return a===b||!a||!b; }); }
+function unlinkPort(r,d,p){ const pt=d.ports[p]; if(!pt?.link) return; const pe=peer(r,pt); if(pe&&pointsAt(pe.r,pe.pt,r,d,p)){ pe.pt.link=null; touch(pe.r); } pt.link=null; }
+function linkPorts(ra,a,pa,rb,b,pb){ unlinkPort(ra,a,pa); unlinkPort(rb,b,pb); a.ports[pa].ext=""; b.ports[pb].ext="";
+  a.ports[pa].link=mkLink(ra,rb,b,pb); b.ports[pb].link=mkLink(rb,ra,a,pa); touch(ra); touch(rb);
   const A=a.ports[pa],B=b.ports[pb]; for(const k of ["cable","color","len"]){ const v=A[k]||B[k]; A[k]=v; B[k]=v; } }
-function syncCable(r,d,p){ const pt=d.ports[p]; if(!pt.link) return; const o=devById(r,pt.link.d); if(!o) return; const op=o.ports[pt.link.p]; for(const k of ["cable","color","len"]) op[k]=pt[k]; }
+function syncCable(r,d,p){ const pt=d.ports[p]; const pe=peer(r,pt); if(!pe) return; for(const k of ["cable","color","len"]) pe.pt[k]=pt[k]; touch(pe.r); }
 
 /* wall ports */
 function pinsAll(){ const out=[]; for(const s of Object.values(S.sites)) for(const p of (s.pins||[])) out.push({s,p}); return out; }
@@ -636,7 +685,7 @@ function trace(p,j=0){
   const L=jp(p)[j]?.link; if(!L||L.p==null) return null;
   const r=S.racks[L.r], d=devById(r,L.d); if(!r||!d||!d.ports[L.p]) return null;
   const pt=d.ports[L.p]; const t={r,d,pi:L.p,pt};
-  if(pt.link){ const o=devById(r,pt.link.d); if(o&&o.ports[pt.link.p]) Object.assign(t,{o,oi:pt.link.p,op:o.ports[pt.link.p]}); }
+  const pe=peer(r,pt); if(pe) Object.assign(t,{o:pe.d,oi:pe.i,op:pe.pt,or:pe.r});
   return t;
 }
 
@@ -648,11 +697,29 @@ function apTrace(s,a){
   if(u.r){ const r=S.racks[u.r], d=devById(r,u.d); if(!r||!d||u.p==null||!d.ports[u.p]) return {partial:true}; return {direct:true,r,d,pi:u.p,pt:d.ports[u.p]}; }
   return null;
 }
-function apSwitch(s,a){ const at=apTrace(s,a); if(!at||at.partial) return null; if(at.direct) return {r:at.r,d:at.d,pi:at.pi,pt:at.pt}; const t=at.t; if(t?.o) return {r:t.r,d:t.o,pi:t.oi,pt:t.op}; return null; }
-function apOnJack(s,p,j){ return (s.pins||[]).find(a=>a.kind==="ap"&&a.up?.pin===p.id&&a.up.j===j); }
+function apSwitch(s,a){ const at=apTrace(s,a); if(!at||at.partial) return null; if(at.direct) return {r:at.r,d:at.d,pi:at.pi,pt:at.pt}; const t=at.t; if(t?.o) return {r:t.or||t.r,d:t.o,pi:t.oi,pt:t.op}; return null; }
+function apOnJack(s,p,j){ return (s.pins||[]).find(a=>hasUp(a)&&a.up?.pin===p.id&&a.up.j===j); }
+/* devices on the floor plan: computers, printers, phones, cameras… plugged into a wall port or a rack port */
+const hasUp = p => p?.kind==="ap" || p?.kind==="dev";
+const DEV_CATS={
+  pc:{label:"Computer",code:"PC",svg:'<rect x="3" y="4" width="14" height="9" rx="1.2"/><path d="M7 16.5h6M10 13v3.5"/>'},
+  printer:{label:"Printer / copier",code:"PRN",svg:'<path d="M6 8V3.5h8V8"/><rect x="3" y="8" width="14" height="6" rx="1.2"/><path d="M6 12h8v4.5H6z"/>'},
+  phone:{label:"Phone",code:"PH",svg:'<rect x="4.5" y="2.5" width="11" height="15" rx="1.6"/><path d="M7.5 6h5M7.5 10h.01M10 10h.01M12.5 10h.01M7.5 13h.01M10 13h.01M12.5 13h.01"/>'},
+  camera:{label:"Camera",code:"CAM",svg:'<rect x="2.5" y="6" width="11" height="8" rx="1.5"/><path d="M13.5 9l4-2.2v6.4l-4-2.2"/>'},
+  display:{label:"Display / TV",code:"TV",svg:'<rect x="2.5" y="3.5" width="15" height="10" rx="1"/><path d="M6.5 17h7M10 13.5V17"/>'},
+  access:{label:"Door access",code:"DR",svg:'<rect x="5" y="2.5" width="10" height="15" rx="1.5"/><circle cx="10" cy="8" r="2.2"/><path d="M8 13.5h4"/>'},
+  iot:{label:"IoT / sensor",code:"IOT",svg:'<circle cx="10" cy="10" r="2.2"/><path d="M6 6a5.7 5.7 0 0 0 0 8M14 6a5.7 5.7 0 0 1 0 8M3.6 3.6a9.1 9.1 0 0 0 0 12.8M16.4 3.6a9.1 9.1 0 0 1 0 12.8"/>'},
+  other:{label:"Other device",code:"DEV",svg:'<rect x="3.5" y="3.5" width="13" height="13" rx="2"/><path d="M7.5 7.5h5v5h-5z"/>'},
+};
+const devCat = p => DEV_CATS[p.cat] || DEV_CATS.other;
+const devIcon = p => `<svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${devCat(p).svg}</svg>`;
+function pinKindName(p){ return p.kind==="rack"?"Rack marker":p.kind==="ap"?"Access point "+p.label:p.kind==="dev"?`${devCat(p).label} ${p.label}`:"Wall port "+p.label; }
+const endpointName = a => a.kind==="ap" ? "Access point "+a.label : a.label;
+function nextDevLabel(s,cat){ const code=(DEV_CATS[cat]||DEV_CATS.other).code, used=new Set((s.pins||[]).map(p=>p.label)); let i=1; while(used.has(`${code}-${pad2(i)}`)) i++; return `${code}-${pad2(i)}`; }
+let lastCat="pc";
 function siteIps(){ const map={}; const add=(ip,x)=>{ ip=(ip||"").trim(); if(ip) (map[ip] ||= []).push(x); };
   for(const r of siteRacks()) for(const d of r.devices){ add(d.ip,1); d.ports.forEach(pt=>add(pt.ip,1)); }
-  for(const p of (site()?.pins||[])){ for(const x of jp(p)) add(x.eip,1); if(p.kind==="ap") add(p.ip,1); }
+  for(const p of (site()?.pins||[])){ for(const x of jp(p)) add(x.eip,1); if(hasUp(p)) add(p.ip,1); }
   return map; }
 function dupSet(){ const m=siteIps(), s=new Set(); for(const k in m) if(m[k].length>1) s.add(k); return s; }
 
@@ -677,7 +744,8 @@ async function flush(c,id){
   inflight.delete(key);
   if(again.has(key)){ again.delete(key); flush(c,id); } else dirty.delete(key);
 }
-const saveRack = () => { if(curId) persist("racks",curId); render(); };
+const flushTouched = () => { for(const id of touched) if(id!==curId&&S.racks[id]) persist("racks",id); touched.clear(); };
+const saveRack = () => { if(curId) persist("racks",curId); flushTouched(); render(); };
 const saveSite = () => { if(curSite) persist("sites",curSite); render(); };
 
 async function boot(){
@@ -752,7 +820,7 @@ function pickDefaults(){
 /* ---------- render ---------- */
 function render(){
   renderSide(); renderBar();
-  if(view==="site") renderSite(); else if(view==="rack") renderRack(); else if(view==="activity") renderActivity(); else renderTable();
+  if(view==="site") renderSite(); else if(view==="rack") renderRack(); else if(view==="racks") renderAll(); else if(view==="activity") renderActivity(); else renderTable();
   renderInsp();
   $("#wsChip").innerHTML=wsChipHTML();
   $("#tabActivity").hidden = mode!=="team";
@@ -777,8 +845,9 @@ function renderSide(){
 }
 function renderBar(){
   document.querySelectorAll("[data-view]").forEach(b=>b.classList.toggle("on",b.dataset.view===view));
-  $("#cableToggle").hidden = view!=="rack";
+  $("#cableToggle").hidden = view!=="rack"&&view!=="racks";
   const s=site(), r=rack();
+  if(view==="racks"){ const n=siteRacks().length; $("#rackTitle").textContent="All racks"; $("#rackSub").textContent=`${s?s.name+" · ":""}${n} rack${n===1?"":"s"} · drag a port onto a port in another rack to run a cable`; return; }
   if(view==="activity"){ $("#rackTitle").textContent="Activity"; $("#rackSub").textContent=mode==="team"?`${Team.name} · who changed what, and when`:""; return; }
   if(view==="site"){ $("#rackTitle").textContent = s ? s.name : loaded ? "No site yet" : "Loading…";
     $("#rackSub").textContent = s ? `${s.floors.length} floor${s.floors.length===1?"":"s"} · ${(s.pins||[]).filter(p=>p.kind==="jack").length} wall ports · ${siteRacks().length} rack${siteRacks().length===1?"":"s"}` : ""; return; }
@@ -791,6 +860,7 @@ function renderBar(){
 /* site view */
 function matchJack(p,j){ const s=q.toLowerCase(), x=jp(p)[j], t=trace(p,j); return [jname(p,j),p.room,p.note,x.endpoint,x.eip,x.mac,x.cable,t?.d?.name,t?.o?.name].some(v=>(v||"").toLowerCase().includes(s)); }
 function matchPin(p){ if(!q) return false;
+  if(p.kind==="dev"){ const s=q.toLowerCase(), sw=apSwitch(site(),p); return [p.label,p.room,p.model,p.ip,p.mac,p.serial,p.user,p.note,devCat(p).label,sw?.d?.name].some(v=>(v||"").toLowerCase().includes(s)); }
   if(p.kind==="ap"){ const s=q.toLowerCase(), sw=apSwitch(site(),p); return [p.label,p.room,p.model,p.ip,p.mac,p.ssids,p.band,p.note,"access point",sw?.d?.name].some(v=>(v||"").toLowerCase().includes(s)); }
   if(p.kind!=="jack"){ const s=q.toLowerCase(); return [p.label,p.room,S.racks[p.rack]?.name].some(v=>(v||"").toLowerCase().includes(s)); } return jp(p).some((_,j)=>matchJack(p,j)); }
 function renderSite(){
@@ -811,13 +881,17 @@ function renderSite(){
        ${f.plan?`<button class="btn" data-act="editplan" ${readOnly?"disabled":""}>Rotate / crop</button>`:""}
        <button class="btn${placeMode==="jack"?" on":""}" data-act="placejack" ${readOnly?"disabled":""}>${placeMode==="jack"?"Placing wall ports… (Esc)":"+ Wall port"}</button>
        <button class="btn${placeMode==="ap"?" on":""}" data-act="placeap" ${readOnly?"disabled":""}>${placeMode==="ap"?"Click to place access point…":"+ Access point"}</button>
+       <button class="btn${placeMode==="dev"?" on":""}" data-act="placedev" ${readOnly?"disabled":""}>${placeMode==="dev"?"Click to place device…":"+ Device"}</button>
        ${pins.some(p=>p.kind==="ap")?`<button class="btn${showCov?" on":""}" data-act="cov" aria-pressed="${showCov}">Coverage</button>`:""}
        <button class="btn${placeMode==="rack"?" on":""}" data-act="placerack" ${readOnly?"disabled":""}>${placeMode==="rack"?"Click to mark rack…":"+ Rack location"}</button>
        <span class="zoom"><button data-act="zout" aria-label="Zoom out">−</button><button data-act="zfit">${Math.round(zoom*100)}%</button><button data-act="zin" aria-label="Zoom in">+</button></span></div>`:""}</div>
    ${f?`<div class="planscroll" id="planScroll"><div class="plan${placeMode?" placing":""}" id="plan" style="width:${zoom*100}%;aspect-ratio:${w}/${h}">
       ${src?`<div class="planimg"><img src="${esc(src)}" alt="Floor plan of ${esc(f.name)}" draggable="false" style="${imgStyle(f.plan)}"></div>`:f.plan?`<div class="noplan"><b>${f.plan.pendingUpload?"Floor plan is waiting to upload":"Loading floor plan…"}</b>${f.plan.pendingUpload?"<span>It was added while offline and will appear once the device that added it reconnects.</span>":""}</div>`:`<div class="noplan"><b>No floor plan yet</b><span>Upload a PNG, JPG, SVG or PDF of ${esc(f.name)}. You can still place wall ports on this grid.</span></div>`}
       ${showCov?pins.filter(p=>p.kind==="ap").map(a=>`<div class="cov${sel.pin===a.id?" sel":""}" style="left:${a.x*100}%;top:${a.y*100}%;width:${(a.range??.12)*200}%"></div>`).join(""):""}
-      ${pins.map(p=>{ if(p.kind==="ap"){ const sw=apSwitch(s,p), at=apTrace(s,p); const cls=["pin","ap",sw?"on":at&&!at.partial?"part":"",sel.pin===p.id?"sel":""]; if(q){ if(matchPin(p)) cls.push("hit"); else cls.push("dim"); }
+      ${pins.map(p=>{ if(p.kind==="dev"){ const sw=apSwitch(s,p), at=apTrace(s,p); const cls=["pin","dv",sw?"on":at&&!at.partial?"part":"",sel.pin===p.id?"sel":""]; if(q){ if(matchPin(p)) cls.push("hit"); else cls.push("dim"); }
+          const tip=`${devCat(p).label} ${p.label}${p.model?" · "+p.model:""}${p.ip?" · "+p.ip:""}${p.user?" · "+p.user:""}${sw?` → ${portName(sw.d,sw.pi)}`:at?.jack?` → wall port ${jname(at.jack,at.j)}`:" · not connected"}`;
+          return `<button class="${cls.join(" ")}" data-pin="${p.id}" style="left:${p.x*100}%;top:${p.y*100}%" title="${esc(tip)}" aria-label="${esc(tip)}"><i>${devIcon(p)}</i><span>${esc(p.label||"Device")}</span></button>`; }
+        if(p.kind==="ap"){ const sw=apSwitch(s,p), at=apTrace(s,p); const cls=["pin","ap",sw?"on":at&&!at.partial?"part":"",sel.pin===p.id?"sel":""]; if(q){ if(matchPin(p)) cls.push("hit"); else cls.push("dim"); }
           const tip=`Access point ${p.label}${p.model?" · "+p.model:""}${p.ip?" · "+p.ip:""}${sw?` → ${portName(sw.d,sw.pi)}`:at?.jack?` → wall port ${jname(at.jack,at.j)}`:" · not connected"}`;
           return `<button class="${cls.join(" ")}" data-pin="${p.id}" style="left:${p.x*100}%;top:${p.y*100}%" title="${esc(tip)}" aria-label="${esc(tip)}"><i><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8.2a10 10 0 0 1 14 0M5.6 10.9a6.3 6.3 0 0 1 8.8 0M8.2 13.5a2.6 2.6 0 0 1 3.6 0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="10" cy="15.6" r="1.3" fill="currentColor"/></svg></i><span>${esc(p.label||"AP")}</span></button>`; }
         const ports=jp(p), nOn=ports.filter((_,j)=>trace(p,j)).length;
@@ -826,8 +900,19 @@ function renderSite(){
         const tip=p.kind==="rack"?`Rack ${lbl}`:`Wall port ${lbl}${ports.length>1?` (${ports.length} ports)`:""}: `+ports.map((x,j)=>{ const t=trace(p,j); return `${ports.length>1?letter(j)+" ":""}${t?`→ ${portName(t.d,t.pi)}${t.o?` → ${portName(t.o,t.oi)}`:""}`:"not patched"}${x.endpoint?` · ${x.endpoint}`:""}`; }).join("; ");
         return `<button class="${cls.join(" ")}" data-pin="${p.id}" style="left:${p.x*100}%;top:${p.y*100}%" title="${esc(tip)}" aria-label="${esc(tip)}"><i>${ports.length>1?`<b class="pn">${ports.length}</b>`:""}</i><span>${esc(lbl)}</span></button>`; }).join("")}
    </div></div>
-   <div class="legend"><span><i class="f"></i>Wall port patched to a rack</span><span><i></i>Wall port not patched</span><span><i class="nb">2</i>Number of ports on the plate</span><span><i class="r"></i>Rack location</span><span><i class="ap"></i>Access point (shaded circle: rough coverage)</span><span>Drag markers to move them.</span>${hiddenN?`<span style="color:var(--warn)">${hiddenN} marker${hiddenN===1?" is":"s are"} outside the cropped area. Use Rotate / crop to widen it.</span>`:""}</div>`:`<p class="hint">Add a floor to start.</p>`}
-   ${jackTable(s)}${apTable(s)}</div>`;
+   <div class="legend"><span><i class="f"></i>Wall port patched to a rack</span><span><i></i>Wall port not patched</span><span><i class="nb">2</i>Number of ports on the plate</span><span><i class="r"></i>Rack location</span><span><i class="ap"></i>Access point (shaded circle: rough coverage)</span><span><i class="dv"></i>Device: filled when connected to a switch</span><span>Drag markers to move them.</span>${hiddenN?`<span style="color:var(--warn)">${hiddenN} marker${hiddenN===1?" is":"s are"} outside the cropped area. Use Rotate / crop to widen it.</span>`:""}</div>`:`<p class="hint">Add a floor to start.</p>`}
+   ${jackTable(s)}${apTable(s)}${devTable(s)}</div>`;
+}
+function devTable(s){
+  const all=(s.pins||[]).filter(p=>p.kind==="dev"); if(!all.length) return "";
+  const list=all.filter(p=>!q||matchPin(p)).sort((a,b)=>(a.label||"").localeCompare(b.label||"",undefined,{numeric:true})), dups=dupSet();
+  return `<div class="tblhead" style="margin-top:6px"><h2>Devices on the floor plan</h2><span class="chip">${list.length} ${q?"matching":"total"}</span></div>
+   <div class="tbl"><table><thead><tr><th>Device</th><th>Type</th><th>Floor</th><th>Room</th><th>Model</th><th>IP</th><th>Assigned to</th><th>Connected via</th><th>Switch port</th><th>VLAN</th></tr></thead><tbody>
+   ${list.length?list.map(a=>{ const at=apTrace(s,a), sw=apSwitch(s,a); return `<tr class="click" data-pinrow="${a.id}"><td><b>${esc(a.label)}</b></td><td>${esc(devCat(a).label)}</td><td>${esc(floorName(s,a.floor))}</td><td>${esc(a.room)}</td><td>${esc(a.model)}</td>
+     <td class="mono">${esc(a.ip)}${a.ip&&dups.has(a.ip.trim())?' <span class="chip warn">Duplicate</span>':""}</td><td>${esc(a.user)}</td>
+     <td>${at?.jack?`Wall port ${esc(jname(at.jack,at.j))}`:at?.direct?"Direct to rack":"<span style='color:var(--muted)'>Not connected</span>"}</td><td>${sw?esc(portName(sw.d,sw.pi)):""}</td><td class="mono">${esc(sw?.pt?.vlan||"")}</td></tr>`; }).join("")
+     :`<tr><td colspan="10" style="color:var(--muted)">No devices match your search.</td></tr>`}
+   </tbody></table></div>`;
 }
 function apTable(s){
   const aps=(s.pins||[]).filter(p=>p.kind==="ap").filter(p=>!q||matchPin(p)).sort((a,b)=>(a.label||"").localeCompare(b.label||"",undefined,{numeric:true}));
@@ -849,7 +934,7 @@ function jackTable(s){
    <div class="tbl"><table><thead><tr><th>Wall port</th><th>Floor</th><th>Room</th><th>Patch panel</th><th>Switch port</th><th>VLAN</th><th>Connected device</th><th>Device IP</th></tr></thead><tbody>
    ${rows.length?rows.map(({p,j,x})=>{ const t=trace(p,j); return `<tr class="click" data-pinrow="${p.id}" data-j="${j}"><td class="mono"><b>${esc(jname(p,j))}</b></td><td>${esc(floorName(s,p.floor))}</td><td>${esc(p.room)}</td>
      <td>${t?esc(portName(t.d,t.pi)):"<span style='color:var(--muted)'>Not patched</span>"}</td><td>${t?.o?esc(portName(t.o,t.oi)):""}</td><td class="mono">${esc(t?.op?.vlan||t?.pt?.vlan||"")}</td>
-     <td>${esc(x.endpoint||(apOnJack(s,p,j)?"Access point "+apOnJack(s,p,j).label:""))}</td><td class="mono">${esc(x.eip)}${x.eip&&dups.has(x.eip.trim())?' <span class="chip warn">Duplicate</span>':""}</td></tr>`; }).join("")
+     <td>${esc(x.endpoint||(apOnJack(s,p,j)?endpointName(apOnJack(s,p,j)):""))}</td><td class="mono">${esc(x.eip)}${x.eip&&dups.has(x.eip.trim())?' <span class="chip warn">Duplicate</span>':""}</td></tr>`; }).join("")
      :`<tr><td colspan="8" style="color:var(--muted)">${q?"No wall ports match your search.":"No wall ports yet. Click + Wall port, then click the floor plan where each jack is."}</td></tr>`}
    </tbody></table></div>`;
 }
@@ -862,10 +947,11 @@ function portHTML(r,d,i,dups,jm){
   const jk=jm[`${r.id}:${d.id}:${i}`];
   const cls=["port",pt.kind]; if(pt.link) cls.push("on"); else if(pt.ext) cls.push("on","ext"); if(jk) cls.push("jk");
   if(sel.dev===d.id && sel.port===i) cls.push("sel");
-  if(sel.port!=null){ const sp=devById(r,sel.dev)?.ports[sel.port]; if(sp?.link && sp.link.d===d.id && sp.link.p===i) cls.push("peer"); }
+  if(sel.port!=null){ const sr=rack(), sp=devById(sr,sel.dev)?.ports[sel.port]; if(sp && pointsAt(sr,sp,r,d,i)) cls.push("peer"); }
   if(matchPort(pt,jk)) cls.push("hit");
-  const tip=`${pt.kind.toUpperCase()} ${pt.n}${pt.label?" · "+pt.label:""}${pt.ip?" · "+pt.ip:""}${pt.cable?" · cable "+pt.cable:""}${jk?" · wall port "+jname(jk.p,jk.j):""}`;
-  return `<button class="${cls.join(" ")}" data-d="${d.id}" data-p="${i}" title="${esc(tip)}" aria-label="${esc(tip)}">${pt.ip?`<i class="ipdot${dups.has(pt.ip.trim())?" dup":""}"></i>`:""}${pt.color&&(pt.link||pt.ext)?`<i class="cc" style="background:${COLORS[pt.color]||pt.color}"></i>`:""}</button>`;
+  const pe=pt.link?peer(r,pt):null; if(pe?.cross) cls.push("xr");
+  const tip=`${pt.kind.toUpperCase()} ${pt.n}${pt.label?" · "+pt.label:""}${pt.ip?" · "+pt.ip:""}${pe?" → "+peerName(r,pe):""}${pt.cable?" · cable "+pt.cable:""}${jk?" · wall port "+jname(jk.p,jk.j):""}`;
+  return `<button class="${cls.join(" ")}" data-r="${r.id}" data-d="${d.id}" data-p="${i}" title="${esc(tip)}" aria-label="${esc(tip)}">${pt.ip?`<i class="ipdot${dups.has(pt.ip.trim())?" dup":""}"></i>`:""}${pt.color&&(pt.link||pt.ext)?`<i class="cc" style="background:${COLORS[pt.color]||pt.color}"></i>`:""}</button>`;
 }
 function portsHTML(r,d,dups,jm){
   const runs=[]; d.ports.forEach((pt,i)=>{ const last=runs[runs.length-1]; if(last&&last.kind===pt.kind) last.idx.push(i); else runs.push({kind:pt.kind,idx:[i]}); });
@@ -881,10 +967,15 @@ function portsHTML(r,d,dups,jm){
 function renderRack(){
   const r=rack(), st=$("#stage");
   if(!r){ st.innerHTML = loaded ? (site()?`<div class="emptyrack"><h2>No racks at ${esc(site().name)} yet</h2><p>Create a rack to match one in your server room, or import a backup or a device list.</p><div class="btnrow"><button class="btn primary" data-act="newrack">Create rack</button><button class="btn" data-act="import">Import…</button></div></div>`:`<div class="emptyrack"><h2>Add a site first</h2><p>Racks belong to a site.</p><div class="btnrow"><button class="btn primary" data-act="newsite">Add a site</button></div></div>`) : `<div class="emptyrack"><p>Loading your racks…</p></div>`; return; }
+  const xd=new Set(); for(const d of r.devices) for(const pt of d.ports) if(pt.link?.r&&pt.link.r!==r.id&&S.racks[pt.link.r]) xd.add(pt.link.r);
+  st.innerHTML=`<div class="rackwrap${xd.size?" xstub":""}" id="rw" style="--xs:${xd.size}"><svg class="cables under" id="cablesUnder"></svg>${rackHTML(r,UH,false)}<svg class="cables" id="cables"></svg></div>`;
+  requestAnimationFrame(drawCables);
+}
+function rackHTML(r,UH,multi){
   const dups=dupSet(), jm=jackMap(), H=r.units*UH;
   let u="", slots="";
   for(let n=1;n<=r.units;n++){ const top=(r.units-n)*UH; u+=`<span style="top:${top+UH/2}px">${n}</span>`;
-    slots+=`<div class="slot${sel.slot===n?" pick":""}" data-u="${n}" style="top:${top}px;height:${UH}px">+ add at U${n}</div>`; }
+    if(!multi) slots+=`<div class="slot${sel.slot===n?" pick":""}" data-u="${n}" style="top:${top}px;height:${UH}px">+ add at U${n}</div>`; }
   const devs=r.devices.map(d=>{
     const top=(r.units-(d.u+d.h-1))*UH, cls=["dev","type-"+d.type];
     if(sel.dev===d.id && sel.port==null) cls.push("sel");
@@ -893,9 +984,24 @@ function renderRack(){
     const face = d.ports.length ? `<div class="face"><span class="meta"><b>${esc(d.model||d.kind||t.label)}</b><small class="${battDue(d)?"due":""}">${battDue(d)?"Replace battery":esc(d.ip||"")}</small></span><span class="ports">${portsHTML(r,d,dups,jm)}</span></div>`
       : d.type==="battery" ? `<div class="face batt"><span class="meta"><b>${esc(d.model||t.label)}</b><small class="${battDue(d)?"due":""}">${battDue(d)?"Replace battery":d.replaceBy?"Replace by "+esc(d.replaceBy):""}</small></span><span class="cells">${"<i></i>".repeat(Math.min(12,4*d.h))}</span></div>`
       : `<div class="face ${d.type==="manager"?"mgr":"blank"}"><span class="meta"><b>${esc(d.model||t.label)}</b><small>${esc(d.ip||"")}</small></span></div>`;
-    return `<div class="${cls.join(" ")}" data-dev="${d.id}" style="top:${top+1}px;height:${d.h*UH-2}px"><span class="tag" title="Drag to move"><b>${esc(d.name)}</b></span>${face}${readOnly?"":`<span class="rz" title="Drag to resize" data-rz="${d.id}"></span>`}</div>`;
+    return `<div class="${cls.join(" ")}" data-dev="${d.id}" style="top:${top+1}px;height:${d.h*UH-2}px"><span class="tag" title="${multi?esc(d.name):"Drag to move"}"><b>${esc(d.name)}</b></span>${face}${readOnly||multi?"":`<span class="rz" title="Drag to resize" data-rz="${d.id}"></span>`}</div>`;
   }).join("");
-  st.innerHTML=`<div class="rackwrap" id="rw"><svg class="cables under" id="cablesUnder"></svg><div class="rack"><div class="ucol" style="height:${H}px">${u}</div><div class="body" id="rbody" style="height:${H}px">${slots}${devs}</div></div><svg class="cables" id="cables"></svg></div>`;
+  return `<div class="rack"><div class="ucol" style="height:${H}px">${u}</div><div class="body"${multi?` data-rb="${r.id}"`:` id="rbody"`} style="height:${H}px">${slots}${devs}</div></div>`;
+}
+/* all racks at the site, side by side, so cables can be dragged between them */
+const MU=20; let mz=null; // null = fit to the window
+function renderAll(){
+  const st=$("#stage"), list=siteRacks();
+  if(!list.length){ renderRack(); return; }
+  st.innerHTML=`<div class="allbar"><span class="zoom"><button data-act="mzout" aria-label="Zoom out">−</button><button data-act="mzfit" title="Fit to window" id="mzlbl">Fit</button><button data-act="mzin" aria-label="Zoom in">+</button></span></div>
+   <div class="allwrap multi" id="rw"><svg class="cables under" id="cablesUnder"></svg><div class="tray" id="tray"><span>Cable tray</span></div>
+   <div class="mhold"><div class="mracks">${list.map(r=>{ const used=r.devices.reduce((a,d)=>a+d.h,0);
+     return `<div class="mrack${r.id===curId?" cur":""}" data-mr="${r.id}"><div class="mhead"><button class="linkbtn" data-openrack="${r.id}" title="Open ${esc(r.name)} on its own">${esc(r.name)}</button><small>${rackSite(r)?"":"unassigned · "}${used}/${r.units}U</small></div>${rackHTML(r,MU,true)}</div>`; }).join("")}</div></div>
+   <svg class="cables" id="cables"></svg></div>`;
+  const mr=st.querySelector(".mracks"), hold=st.querySelector(".mhold"), w=mr.offsetWidth, h=mr.offsetHeight;
+  const fit=Math.max(.5,Math.min(1,(st.clientWidth-40-70)/w)), z=mz??fit;
+  mr.style.transform=`scale(${z})`; hold.style.width=w*z+"px"; hold.style.height=h*z+"px"; $("#rw").dataset.z=z;
+  $("#mzlbl").textContent=mz==null?`Fit · ${Math.round(z*100)}%`:`${Math.round(z*100)}%`;
   requestAnimationFrame(drawCables);
 }
 // Cables run along the seams between devices and down a gutter beside the rack.
@@ -913,25 +1019,39 @@ function roundPath(pts,rad){
   return d;
 }
 function drawCables(){
-  const svg=$("#cables"), under=$("#cablesUnder"), rw=$("#rw"), r=rack(); if(!svg||!under||!rw||!r) return;
+  const svg=$("#cables"), under=$("#cablesUnder"), rw=$("#rw"); if(!svg||!under||!rw) return;
   if(!showCables){ svg.innerHTML=""; under.innerHTML=""; return; }
-  const box=rw.getBoundingClientRect(), rk=rw.querySelector(".rack").getBoundingClientRect();
-  const gut=rk.right-box.left+10; let lane=0, top="", low="";
-  const seen=new Set(), selKey = sel.port!=null ? `${sel.dev}:${sel.port}` : null, any=!!(selKey||sel.dev);
+  const multi=rw.classList.contains("multi"), box=rw.getBoundingClientRect();
+  const els = multi ? [...rw.querySelectorAll(".mrack")].map(el=>[S.racks[el.dataset.mr],el.querySelector(".rack")]) : [[rack(),rw.querySelector(".rack")]];
+  const z=+(rw.dataset.z||1), racks=[], gut={}, lanes={}, step=multi?4:6, maxL=multi?Math.max(3,Math.floor((60*z-10)/4)):14; let rtop=Infinity;
+  for(const [r,el] of els){ if(!r||!el) continue; const rk=el.getBoundingClientRect(); racks.push(r); gut[r.id]=rk.right-box.left+(multi?5:10); lanes[r.id]=0; rtop=Math.min(rtop,rk.top-box.top); }
+  if(!racks.length){ svg.innerHTML=""; under.innerHTML=""; return; }
+  const tray=multi?$("#tray")?.getBoundingClientRect():null, trayY = tray ? tray.top-box.top+10 : rtop-10;
+  const lane=r=>gut[r.id]+(lanes[r.id]++%maxL)*step; let xl=0, top="", low="", stubs={};
+  const portEl=(rid,did,p)=>rw.querySelector(`.port[data-r="${rid}"][data-d="${did}"][data-p="${p}"]`);
+  const seen=new Set(), selKey = sel.port!=null ? `${curId}:${sel.dev}:${sel.port}` : null, any=!!(selKey||sel.dev);
   const endOf=el=>{ const pr=el.getBoundingClientRect(), dr=el.closest(".dev").getBoundingClientRect();
     const x=pr.left-box.left+pr.width/2, y=pr.top-box.top+pr.height/2, upper=y < (dr.top-box.top+dr.height/2);
     return {x,y,seam: upper ? dr.top-box.top-1.5 : dr.bottom-box.top+1.5, py: upper ? pr.top-box.top : pr.bottom-box.top}; };
-  for(const d of r.devices) d.ports.forEach((pt,i)=>{
-    if(!pt.link) return; const ka=`${d.id}:${i}`, kb=`${pt.link.d}:${pt.link.p}`, key=[ka,kb].sort().join("|"); if(seen.has(key)) return; seen.add(key);
-    const a=rw.querySelector(`.port[data-d="${d.id}"][data-p="${i}"]`), b=rw.querySelector(`.port[data-d="${pt.link.d}"][data-p="${pt.link.p}"]`);
-    if(!a||!b) return;
-    const A=endOf(a), B=endOf(b), lx=gut+(lane++%14)*6;
-    const path=roundPath([[A.x,A.py],[A.x,A.seam],[lx,A.seam],[lx,B.seam],[B.x,B.seam],[B.x,B.py]],6);
-    const hot = !!selKey && (ka===selKey||kb===selKey), lit = !selKey && sel.dev && (d.id===sel.dev||pt.link.d===sel.dev);
+  for(const r of racks) for(const d of r.devices) d.ports.forEach((pt,i)=>{
+    if(!pt.link) return; const pe=peer(r,pt); if(!pe) return;
+    const ka=`${r.id}:${d.id}:${i}`, kb=`${pe.r.id}:${pe.d.id}:${pe.i}`, key=[ka,kb].sort().join("|"); if(seen.has(key)) return; seen.add(key);
+    const a=portEl(r.id,d.id,i), b=portEl(pe.r.id,pe.d.id,pe.i); if(!a) return;
+    const A=endOf(a), ends=[A]; let pts;
+    if(!pe.cross){ if(!b) return; const B=endOf(b), lx=lane(r); ends.push(B); pts=[[A.x,A.py],[A.x,A.seam],[lx,A.seam],[lx,B.seam],[B.x,B.seam],[B.x,B.py]]; }
+    else if(b&&gut[pe.r.id]!=null){ const B=endOf(b), ax=lane(r), bx=lane(pe.r), ty=trayY+(xl++%8)*4; ends.push(B);
+      pts=[[A.x,A.py],[A.x,A.seam],[ax,A.seam],[ax,ty],[bx,ty],[bx,B.seam],[B.x,B.seam],[B.x,B.py]]; }
+    else { const ax=lane(r), ty=trayY-(xl++%3)*3, ex=gut[r.id]+maxL*step+4; (stubs[pe.r.id] ||= {name:pe.r.name,n:0,hot:false}).n++;
+      pts=[[A.x,A.py],[A.x,A.seam],[ax,A.seam],[ax,ty],[ex,ty]]; }
+    const path=roundPath(pts,6);
+    const hot = !!selKey && (ka===selKey||kb===selKey), lit = !selKey && sel.dev && (d.id===sel.dev||pe.d.id===sel.dev);
+    if(pe.cross&&!(b&&gut[pe.r.id]!=null)&&(hot||lit)) stubs[pe.r.id].hot=true;
     const c=COLORS[pt.color]||pt.color||"var(--accent)", sh=shortCable(r,d,i)?' stroke-dasharray="7 5"':"";
-    if(hot){ top+=`<path class="casing" d="${path}"/><path class="hot" stroke="${c}"${sh} d="${path}"/><circle class="end" cx="${A.x}" cy="${A.py}" r="3" fill="${c}"/><circle class="end" cx="${B.x}" cy="${B.py}" r="3" fill="${c}"/>`; }
+    if(hot){ top+=`<path class="casing" d="${path}"/><path class="hot" stroke="${c}"${sh} d="${path}"/>${ends.map(E=>`<circle class="end" cx="${E.x}" cy="${E.py}" r="3" fill="${c}"/>`).join("")}`; }
     else low+=`<path class="${lit?"lit":any?"cold":""}" stroke="${c}"${sh} d="${path}"/>`;
   });
+  const sk=Object.values(stubs); if(sk.length){ const r=racks[0], x=gut[r.id]-8;
+    top+=sk.map((s,k)=>`<text class="xlab${s.hot?" hot":""}" x="${x}" y="${trayY-6-k*13}" text-anchor="end">→ ${esc(s.name)} · ${s.n} cable${s.n===1?"":"s"}</text>`).join(""); }
   for(const el of [svg,under]){ el.setAttribute("width",box.width+120); el.setAttribute("height",box.height); }
   under.innerHTML=low; svg.innerHTML=top;
 }
@@ -940,8 +1060,8 @@ function drawCables(){
 function cableRows(r){
   const rows=[], seen=new Set(), jm=jackMap();
   for(const d of r.devices) d.ports.forEach((pt,i)=>{
-    if(pt.link){ const key=[`${d.id}:${i}`,`${pt.link.d}:${pt.link.p}`].sort().join("|"); if(!seen.has(key)){ seen.add(key);
-      const o=devById(r,pt.link.d); rows.push({short:!!shortCable(r,d,i),a:portName(d,i),b:o?portName(o,pt.link.p):"?",cable:pt.cable,color:pt.color,len:pt.len,d:d.id,p:i}); } }
+    if(pt.link){ const pe=peer(r,pt), key=[`${r.id}:${d.id}:${i}`,pe?`${pe.r.id}:${pe.d.id}:${pe.i}`:"?"].sort().join("|"); if(!seen.has(key)){ seen.add(key);
+      rows.push({short:!!shortCable(r,d,i),a:portName(d,i),b:pe?peerName(r,pe):"?",cross:!!pe?.cross,cable:pt.cable,color:pt.color,len:pt.len,d:d.id,p:i}); } }
     else if(pt.ext) rows.push({a:portName(d,i),b:pt.ext+" (outside rack)",cable:pt.cable,color:pt.color,len:pt.len,d:d.id,p:i});
     const jk=jm[`${r.id}:${d.id}:${i}`]; if(jk) rows.push({a:portName(d,i),b:`Wall port ${jname(jk.p,jk.j)} · ${floorName(jk.s,jk.p.floor)}${jk.p.room?" · "+jk.p.room:""}`,cable:jk.x.cable||"",color:"",len:"",d:d.id,p:i,pin:jk.p.id,j:jk.j});
   });
@@ -984,6 +1104,7 @@ function renderInsp(){
   const el=$("#insp");
   if(view==="site") return renderSiteSideInsp(el);
   if(view==="activity") return renderTeamSide(el);
+  if(view==="racks" && !sel.dev) return renderAllInsp(el);
   const r=rack();
   if(!r){ el.innerHTML=`<div class="empty">Select or create a rack to see its details here.</div>`; return; }
   const d=devById(r,sel.dev);
@@ -993,7 +1114,7 @@ function renderInsp(){
   const used=r.devices.reduce((a,x)=>a+x.h,0), links=cableRows(r).filter(x=>!x.pin).length, ips=ipRows(r).length, dups=dupSet().size;
   el.innerHTML=`${roNote()}<h2>${esc(r.name)}</h2><p class="sub">Rack overview</p>
    <div class="stats"><div class="stat"><b>${used}/${r.units}</b><span>Units used</span></div><div class="stat"><b>${r.devices.length}</b><span>Devices</span></div><div class="stat"><b>${links}</b><span>Cables</span></div><div class="stat"><b>${ips}</b><span>IP addresses</span></div></div>
-   ${(()=>{ const n=r.devices.reduce((a,d)=>a+d.ports.filter((pt,i)=>pt.link&&d.id<pt.link.d&&shortCable(r,d,i)).length,0); return n?`<div class="notice">${n} cable${n===1?" looks":"s look"} too short for where the devices sit now. They're dashed in the rack and flagged in Cables &amp; IPs.</div>`:""; })()}
+   ${(()=>{ const n=r.devices.reduce((a,d)=>a+d.ports.filter((pt,i)=>pt.link&&((pt.link.r&&pt.link.r!==r.id)||d.id<pt.link.d)&&shortCable(r,d,i)).length,0); return n?`<div class="notice">${n} cable${n===1?" looks":"s look"} too short for where the devices sit now. They're dashed in the rack and flagged in Cables &amp; IPs.</div>`:""; })()}
    ${r.devices.filter(battDue).length?`<div class="notice">Battery replacement is due on: ${r.devices.filter(battDue).map(x=>esc(x.name)).join(", ")}.</div>`:""}
    ${dups?`<div class="notice">${dups} IP address${dups>1?"es are":" is"} assigned more than once at this site. Open Cables &amp; IPs to see where.</div>`:""}
    <div class="fields" data-scope="rack">${fld("Rack name","name",r.name,{full:true})}
@@ -1003,10 +1124,19 @@ function renderInsp(){
    ${(()=>{ const n=r.devices.filter(d=>/^[0-9]+$/.test(d.itg?.id||"")).length; return (itgReady()||!IN_CLAUDE)&&!readOnly?`<div class="sech">IT Glue</div><div class="btnrow" style="margin-bottom:14px"><button class="btn" data-act="itgimport">Import from IT Glue…</button>${itgReady()&&n?`<button class="btn" data-act="itgrefreshall">Refresh ${n} linked device${n===1?"":"s"}</button>`:""}</div>`:""; })()}
    <div class="btnrow">${delBtn("rack","Delete rack")}</div>`;
 }
+function renderAllInsp(el){
+  const list=siteRacks(), xs=[];
+  for(const r of list) for(const d of r.devices) d.ports.forEach((pt,i)=>{ const pe=pt.link?peer(r,pt):null; if(pe?.cross && r.id<pe.r.id) xs.push({r,d,i,pt,pe}); });
+  el.innerHTML=`${roNote()}<h2>All racks</h2><p class="sub">${esc(site()?.name||"")} · ${list.length} rack${list.length===1?"":"s"}</p>
+   <div class="stats"><div class="stat"><b>${list.length}</b><span>Racks</span></div><div class="stat"><b>${xs.length}</b><span>Cables between racks</span></div></div>
+   <p class="hint">Drag a free port onto a port in another rack to run a cable between them. Drag a connected port to move that end; the other end stays put. Cables between racks run up through the cable tray.</p>
+   <p class="hint">Click a device or port to edit it here. Click a rack's name to open it on its own, where you can move and resize devices.</p>
+   ${xs.length?`<div class="sech">Cables between racks</div><div class="plist">${xs.map(x=>`<button data-goto="${x.r.id}:${x.d.id}:${x.i}"><span class="n">${esc(x.pt.cable||"—")}</span><span class="to">${esc(x.r.name+" · "+portName(x.d,x.i))} → ${esc(peerName(x.r,x.pe))}</span><span class="ip">${esc(x.pt.len||"")}</span></button>`).join("")}</div>`:""}`;
+}
 function renderDevInsp(r,d){
   const t=TYPES[d.type]||{label:d.type}, dups=dupSet(), jm=jackMap();
   const kinds={}; d.ports.forEach(p=>kinds[p.kind]=(kinds[p.kind]||0)+1);
-  $("#insp").innerHTML=`${roNote()}<button class="back" data-back="rack">← ${esc(r.name)}</button><h2>${esc(d.name)}</h2><p class="sub">${esc(d.type==="custom"&&d.kind?d.kind:t.label.replace("…",""))} · U${d.u}${d.h>1?"–"+(d.u+d.h-1):""}</p>
+  $("#insp").innerHTML=`${roNote()}<button class="back" data-back="rack">← ${view==="racks"?"All racks":esc(r.name)}</button><h2>${esc(d.name)}</h2>${view==="racks"?`<p class="sub" style="margin:-4px 0 2px">${esc(r.name)}</p>`:""}<p class="sub">${esc(d.type==="custom"&&d.kind?d.kind:t.label.replace("…",""))} · U${d.u}${d.h>1?"–"+(d.u+d.h-1):""}</p>
    <div class="fields" data-scope="dev">${fld("Name","name",d.name)}${fld("Management IP","ip",d.ip,{mono:true,ph:"10.0.0.1",bad:d.ip&&dups.has(d.ip.trim())})}
    ${fld("Model","model",d.model,{ph:"e.g. Cisco C9200-24T"})}${fld("Serial","serial",d.serial,{mono:true})}
    ${fld("Type","type",d.type,{select:Object.entries(TYPES).map(([k,v])=>[k,v.label])})}${fld("Height (U)","h",d.h,{type:"number"})}
@@ -1018,35 +1148,36 @@ function renderDevInsp(r,d){
    ${itgDeviceBox(d)}
    <div class="sech">Ports</div>
    <div class="fields" data-scope="ports">${fld("RJ45","rj45",kinds.rj45||0,{type:"number"})}${fld("SFP","sfp",kinds.sfp||0,{type:"number"})}${fld("Fiber LC","lc",kinds.lc||0,{type:"number"})}<label style="justify-content:flex-end"><button class="btn" data-act="applyports" ${readOnly?"disabled":""}>Apply port counts</button></label></div>
-   ${d.ports.length?`<div class="plist">${d.ports.map((pt,i)=>{ const o=pt.link?devById(r,pt.link.d):null; const jk=jm[`${r.id}:${d.id}:${i}`];
-     const to=o?esc(portName(o,pt.link.p)):pt.ext?esc(pt.ext):jk?`Wall port ${esc(jname(jk.p,jk.j))}`:"<span style='color:var(--muted)'>Free</span>";
+   ${d.ports.length?`<div class="plist">${d.ports.map((pt,i)=>{ const o=peer(r,pt); const jk=jm[`${r.id}:${d.id}:${i}`];
+     const to=o?esc(peerName(r,o)):pt.ext?esc(pt.ext):jk?`Wall port ${esc(jname(jk.p,jk.j))}`:"<span style='color:var(--muted)'>Free</span>";
      return `<button data-pp="${i}"><span class="n">${pt.kind==="sfp"?"S":pt.kind==="lc"?"F":""}${pt.n}</span><span class="to">${pt.label?`<b>${esc(pt.label)}</b> → `:""}${to}${jk&&(o||pt.ext)?` · wall ${esc(jname(jk.p,jk.j))}`:""}</span><span class="ip">${esc(pt.ip)}</span></button>`; }).join("")}</div>`:`<p class="hint">This device has no network ports.</p>`}
    <div class="btnrow"><button class="btn" data-nudge="1" ${readOnly?"disabled":""}>Move up</button><button class="btn" data-nudge="-1" ${readOnly?"disabled":""}>Move down</button>${delBtn("dev:"+d.id,"Remove from rack")}</div>`;
 }
 function renderPortInsp(r,d,p){
   const pt=d.ports[p], dups=dupSet(), jk=jackMap()[`${r.id}:${d.id}:${p}`];
-  const target = pt.link ? pt.link.d : (pt.ext ? "__ext" : "");
+  const pe=peer(r,pt), racksHere=[r,...siteRacksOf(r).filter(x=>x.id!==r.id)], rn=x=>x.id!==r.id?x.name+" · ":"";
+  const target = pe ? `${pe.r.id}:${pe.d.id}` : (pt.ext ? "__ext" : "");
   const pend=$("#insp").dataset.pendDev; const chosenDev = pend ? pend : target;
   let portSel="";
-  if(chosenDev && chosenDev!=="__ext"){ const o=devById(r,chosenDev);
-    if(o) portSel = fld("Port on "+o.name,"linkp",pt.link&&pt.link.d===o.id?pt.link.p:"",{full:true,select:[["","Choose a port…"],...o.ports.map((op,i)=>{ if(o.id===d.id&&i===p) return null; const busy=op.link||op.ext; const who=op.link?devById(r,op.link.d):null;
-      return [i,`${op.kind.toUpperCase()} ${op.n}${op.label?" ("+op.label+")":""}${busy?(" — in use"+(who?" by "+who.name:"")):""}`]; }).filter(Boolean)]}); }
-  $("#insp").innerHTML=`${roNote()}<button class="back" data-back="dev">← ${esc(d.name)}</button><h2>${esc(d.name)} · port ${pt.n}</h2><p class="sub">${pt.kind.toUpperCase()} · ${pt.link?"connected":pt.ext?"runs outside the rack":"free"}</p>
+  if(chosenDev && chosenDev!=="__ext"){ const [orid,odid]=chosenDev.split(":"); const or=S.racks[orid], o=devById(or,odid);
+    if(o) portSel = fld("Port on "+rn(or)+o.name,"linkp",pe&&pe.d.id===o.id?pe.i:"",{full:true,select:[["","Choose a port…"],...o.ports.map((op,i)=>{ if(o.id===d.id&&i===p) return null; const busy=op.link||op.ext; const who=peer(or,op);
+      return [i,`${op.kind.toUpperCase()} ${op.n}${op.label?" ("+op.label+")":""}${busy?(" — in use"+(who?" by "+(who.r.id!==or.id?who.r.name+" · ":"")+who.d.name:"")):""}`]; }).filter(Boolean)]}); }
+  $("#insp").innerHTML=`${roNote()}<button class="back" data-back="dev">← ${esc(d.name)}</button><h2>${esc(d.name)} · port ${pt.n}</h2><p class="sub">${pt.kind.toUpperCase()} · ${pe?(pe.cross?"connected to "+esc(pe.r.name):"connected"):pt.ext?"runs outside the rack":"free"}</p>
    ${jk?`<div class="trace"><div class="hop"><span><b>Wall port ${esc(jname(jk.p,jk.j))}</b><small>${esc(floorName(jk.s,jk.p.floor))}${jk.p.room?" · "+esc(jk.p.room):""}${jk.x.endpoint?" · "+esc(jk.x.endpoint):""}</small><br><button class="linkbtn" data-showpin="${jk.p.id}" data-j="${jk.j}">Show on floor plan</button></span></div></div>`:""}
    <div class="fields" data-scope="port">${fld("Label","label",pt.label,{ph:"e.g. Uplink, Desk 2-14"})}${fld("IP address","ip",pt.ip,{mono:true,ph:"192.168.1.10",bad:pt.ip&&dups.has(pt.ip.trim())})}
    ${fld("VLAN","vlan",pt.vlan,{mono:true})}${fld("MAC","mac",pt.mac,{mono:true,ph:"aa:bb:cc:dd:ee:ff"})}</div>
    <div class="sech">Cable</div>
    <div class="fields" data-scope="port">
-   ${fld("Connected to","linkd",chosenDev,{full:true,select:[["","Nothing (free)"],["__ext","Something outside this rack…"],...r.devices.filter(x=>x.ports.length).map(x=>[x.id,x.name+(x.model?" · "+x.model:"")])]})}
+   ${fld("Connected to","linkd",chosenDev,{full:true,select:[["","Nothing (free)"],["__ext",racksHere.length>1?"Something outside these racks…":"Something outside this rack…"],...racksHere.flatMap(x=>x.devices.filter(y=>y.ports.length).map(y=>[`${x.id}:${y.id}`,rn(x)+y.name+(y.model?" · "+y.model:"")]))]})}
    ${chosenDev==="__ext"?fld("Destination","ext",pt.ext,{full:true,ph:"e.g. ISP demarc, another rack"}):""}
    ${portSel}
    ${fld("Cable ID","cable",pt.cable,{mono:true,ph:"C-0142"})}${fld("Color","color",pt.color,{select:[["","—"],...Object.keys(COLORS).map(c=>[c,c[0].toUpperCase()+c.slice(1)])]})}
    ${fld("Length","len",pt.len,{ph:"2 m",bad:!!shortCable(r,d,p)})}
-   ${(pt.link||pt.ext)?fld("Move this end to","moveto","",{full:true,select:[["","Choose a free port…"],...r.devices.flatMap(x=>x.ports.map((op,i)=>(!op.link&&!op.ext&&!(x.id===d.id&&i===p))?[x.id+":"+i,portName(x,i)]:null).filter(Boolean))]}):""}
+   ${(pt.link||pt.ext)?fld("Move this end to","moveto","",{full:true,select:[["","Choose a free port…"],...racksHere.flatMap(x=>x.devices.flatMap(y=>y.ports.map((op,i)=>(!op.link&&!op.ext&&!(y.id===d.id&&i===p))?[`${x.id}:${y.id}:${i}`,rn(x)+portName(y,i)]:null).filter(Boolean)))]}):""}
    ${fld("Notes","note",pt.note,{area:true})}</div>
-   ${(()=>{ const sc=shortCable(r,d,p); return sc?`<div class="notice">This cable is recorded as ${fmtM(sc.have)}, but ${esc(d.name)} and ${esc(sc.o.name)} are now about ${fmtM(sc.need)} apart. Update the length, or move the devices closer.</div>`:""; })()}
-   ${(pt.link||pt.ext)?`<p class="hint">Tip: drag this port onto another port in the rack to move the cable. The other end stays where it is.</p>`:`<p class="hint">Tip: drag this port onto another free port to connect them.</p>`}
-   ${pt.link?`<div class="btnrow"><button class="btn" data-goto="${pt.link.d}:${pt.link.p}">Go to other end</button><button class="btn danger" data-act="unlink" ${readOnly?"disabled":""}>Disconnect</button></div>`:pt.ext?`<div class="btnrow"><button class="btn danger" data-act="unlink" ${readOnly?"disabled":""}>Disconnect</button></div>`:""}`;
+   ${(()=>{ const sc=shortCable(r,d,p); return sc?`<div class="notice">This cable is recorded as ${fmtM(sc.have)}, but ${esc(d.name)} and ${esc(rn(sc.or)+sc.o.name)} are now about ${fmtM(sc.need)} apart${sc.cross?" by way of the cable tray":""}. Update the length, or move the devices closer.</div>`:""; })()}
+   ${(pt.link||pt.ext)?`<p class="hint">Tip: drag this port onto another port to move the cable. The other end stays where it is.${racksHere.length>1?(view==="racks"?" It can go to a port in any rack shown.":" Open <b>All racks</b> to drag it to a rack next door."):""}</p>`:`<p class="hint">Tip: drag this port onto another free port to connect them.${racksHere.length>1&&view!=="racks"?" In <b>All racks</b> you can drag it to a port in another rack.":""}</p>`}
+   ${pt.link?`<div class="btnrow">${pe?`<button class="btn" data-goto="${pe.r.id}:${pe.d.id}:${pe.i}">Go to other end${pe.cross?" ("+esc(pe.r.name)+")":""}</button>`:""}<button class="btn danger" data-act="unlink" ${readOnly?"disabled":""}>Disconnect</button></div>`:pt.ext?`<div class="btnrow"><button class="btn danger" data-act="unlink" ${readOnly?"disabled":""}>Disconnect</button></div>`:""}`;
 }
 function renderTeamSide(el){
   if(mode!=="team"){ el.innerHTML=`<div class="empty">Team details appear here in a Team Workspace.</div>`; return; }
@@ -1060,7 +1191,7 @@ function renderSiteSideInsp(el){
   const s=site();
   if(!s){ el.innerHTML=`<div class="empty">Add a site to record its address, floor plans and wall ports.</div>`; return; }
   const p=(s.pins||[]).find(x=>x.id===sel.pin);
-  if(p) return p.kind==="rack" ? renderRackPinInsp(el,s,p) : p.kind==="ap" ? renderApInsp(el,s,p) : renderJackInsp(el,s,p);
+  if(p) return p.kind==="rack" ? renderRackPinInsp(el,s,p) : p.kind==="ap" ? renderApInsp(el,s,p) : p.kind==="dev" ? renderDevPinInsp(el,s,p) : renderJackInsp(el,s,p);
   const f=floor();
   el.innerHTML=`${roNote()}<h2>${esc(s.name)}</h2><p class="sub">Site details</p>
    <div class="fields" data-scope="site">${fld("Site name","name",s.name,{full:true})}
@@ -1080,7 +1211,7 @@ function jackPortBlock(s,p,j,dups,jm){
      <div class="hop"><span><b>${esc(x.endpoint||"Connected device")}</b><small>${esc(x.eip||"no IP")}${x.mac?" · "+esc(x.mac):""}</small></span></div>
      <div class="hop"><span><b>Wall port ${esc(jname(p,j))}</b><small>${esc(p.room||floorName(s,p.floor))}${x.cable?" · cable "+esc(x.cable):""}</small></span></div>
      ${t?`<div class="hop"><span><b>${esc(portName(t.d,t.pi))}</b><small>${esc(t.r.name)}</small><br><button class="linkbtn" data-showrack="${t.r.id}:${t.d.id}:${t.pi}">Show in rack</button></span></div>
-       ${t.o?`<div class="hop last"><span><b>${esc(portName(t.o,t.oi))}</b><small>${t.op.vlan?"VLAN "+esc(t.op.vlan):"no VLAN set"}${t.o.ip?" · "+esc(t.o.ip):""}${t.op.cable?" · patch "+esc(t.op.cable):""}</small><br><button class="linkbtn" data-showrack="${t.r.id}:${t.o.id}:${t.oi}">Show in rack</button></span></div>`
+       ${t.o?`<div class="hop last"><span><b>${esc(portName(t.o,t.oi))}</b><small>${t.op.vlan?"VLAN "+esc(t.op.vlan):"no VLAN set"}${t.o.ip?" · "+esc(t.o.ip):""}${t.op.cable?" · patch "+esc(t.op.cable):""}</small><br><button class="linkbtn" data-showrack="${(t.or||t.r).id}:${t.o.id}:${t.oi}">Show in rack</button></span></div>`
         :`<div class="hop last"><span class="gap">The patch panel port isn't connected to a switch yet.</span></div>`}`
       :`<div class="hop last"><span class="gap">Not patched to a rack yet. Choose the panel port below.</span></div>`}
    </div>
@@ -1090,7 +1221,7 @@ function jackPortBlock(s,p,j,dups,jm){
    ${r?fld("Device","ld",lk.d||"",{idx:j,full:true,select:[["","Choose a device…"],...r.devices.filter(z=>z.ports.length).map(z=>[z.id,z.name+(z.model?" · "+z.model:"")])]}):""}
    ${d?fld("Port","lp",lk.p??"",{idx:j,full:true,select:[["","Choose a port…"],...d.ports.map((op,i)=>{ const other=jm[`${r.id}:${d.id}:${i}`]; return [i,`${op.kind.toUpperCase()} ${op.n}${op.label?" ("+op.label+")":""}${other&&!(other.p.id===p.id&&other.j===j)?" — wall port "+jname(other.p,other.j):""}`]; })]}):""}
    ${fld("Cable ID","cable",x.cable||"",{idx:j,mono:true,ph:"W-214"})}</div>
-   ${(()=>{ const ap=apOnJack(s,p,j); return ap?`<div class="notice" style="background:var(--accent-soft);color:var(--accent)">Access point <b>${esc(ap.label)}</b> is plugged into this port. <button class="linkbtn" data-pin="${ap.id}">Open it</button></div>`:""; })()}
+   ${(()=>{ const ap=apOnJack(s,p,j); return ap?`<div class="notice" style="background:var(--accent-soft);color:var(--accent)">${ap.kind==="ap"?"Access point":esc(devCat(ap).label)} <b>${esc(ap.label)}</b> is plugged into this port. <button class="linkbtn" data-pin="${ap.id}">Open it</button></div>`:""; })()}
    <div class="sech">Plugged into this port</div>
    <div class="fields" data-scope="pinport" data-j="${j}">${fld("Device","endpoint",x.endpoint,{idx:j,full:true,ph:"e.g. Reception PC, Printer HP-2F"})}
    ${fld("Device IP","eip",x.eip,{idx:j,mono:true,ph:"10.0.20.45",bad:x.eip&&dups.has(x.eip.trim())})}${fld("MAC","mac",x.mac,{idx:j,mono:true})}</div>`;
@@ -1114,25 +1245,50 @@ function setJackPorts(p,n){
   const ports=jp(p); n=Math.max(1,Math.min(12,n|0)); if(n===ports.length) return;
   if(n>ports.length){ while(ports.length<n) ports.push(newJackPort()); openJ=n-1; toast(`Wall port ${p.label} now has ${n} ports.`); }
   else { const gone=ports.slice(n), lost=gone.filter(x=>x.link||x.endpoint||x.eip).length; ports.length=n; if(openJ>=n) openJ=n-1;
-    for(const a of (site()?.pins||[])) if(a.kind==="ap"&&a.up?.pin===p.id&&a.up.j>=n) a.up=null;
+    for(const a of (site()?.pins||[])) if(hasUp(a)&&a.up?.pin===p.id&&a.up.j>=n) a.up=null;
     toast(`Wall port ${p.label} now has ${n} port${n===1?"":"s"}.${lost?` Removed ${lost} port${lost===1?"":"s"} that had a patch or device recorded.`:""}`); }
   saveSite();
 }
-function renderApInsp(el,s,a){
-  const at=apTrace(s,a), sw=apSwitch(s,a), dups=dupSet(), u=a.up||{};
+function upParts(s,a,title){
+  const at=apTrace(s,a), sw=apSwitch(s,a), u=a.up||{};
   const jackOpts=(s.pins||[]).filter(p=>p.kind==="jack").sort((x,y)=>(x.label||"").localeCompare(y.label||"",undefined,{numeric:true}))
     .flatMap(p=>jp(p).map((x,j)=>{ const other=apOnJack(s,p,j); return [`jack:${p.id}:${j}`,`Wall port ${jname(p,j)}${p.room?" · "+p.room:""}${other&&other.id!==a.id?" — "+other.label:""}`]; }));
   const upVal=u.pin?`jack:${u.pin}:${u.j}`:(u.r!=null?"rack":"");
   const r=S.racks[u.r], d=devById(r,u.d);
   const hop=(b,sm,btn="")=>`<div class="hop"><span><b>${b}</b><small>${sm}</small>${btn?"<br>"+btn:""}</span></div>`;
-  let chain=hop(`Access point ${esc(a.label)}`,`${esc(a.ip||"no IP")}${a.ssids?" · "+esc(a.ssids):""}`);
+  let chain=hop(title,`${esc(a.ip||"no IP")}${a.ssids?" · "+esc(a.ssids):a.user?" · "+esc(a.user):""}`);
   if(at?.jack){ const t=at.t; chain+=hop(`Wall port ${esc(jname(at.jack,at.j))}`,esc(at.jack.room||floorName(s,at.jack.floor)),`<button class="linkbtn" data-showpin="${at.jack.id}" data-j="${at.j}">Show wall port</button>`);
     chain+= t ? hop(esc(portName(t.d,t.pi)),esc(t.r.name),`<button class="linkbtn" data-showrack="${t.r.id}:${t.d.id}:${t.pi}">Show in rack</button>`) : `<div class="hop last"><span class="gap">That wall port isn't patched to a rack yet.</span></div>`; }
   if(sw) chain+=`<div class="hop last"><span><b>${esc(portName(sw.d,sw.pi))}</b><small>${sw.pt.vlan?"VLAN "+esc(sw.pt.vlan):"no VLAN set"}${sw.d.ip?" · "+esc(sw.d.ip):""}</small><br><button class="linkbtn" data-showrack="${sw.r.id}:${sw.d.id}:${sw.pi}">Show in rack</button></span></div>`;
   else if(at?.jack && at.t) chain+=`<div class="hop last"><span class="gap">The patch panel port isn't connected to a switch yet.</span></div>`;
   else if(!at || at.partial) chain+=`<div class="hop last"><span class="gap">Not connected yet. Choose where it plugs in below.</span></div>`;
+  const plug=`<div class="sech">Plugged into</div>
+   <div class="fields" data-scope="ap">${fld("Connection","up",upVal,{full:true,select:[["","Not connected"],...jackOpts,["rack","Directly to a rack port…"]]})}
+   ${upVal==="rack"?`${fld("Rack","ar",u.r||"",{full:true,select:[["","Choose a rack…"],...siteRacks().map(z=>[z.id,z.name])]})}
+     ${r?fld("Device","ad",u.d||"",{full:true,select:[["","Choose a device…"],...r.devices.filter(z=>z.ports.length).map(z=>[z.id,z.name+(z.model?" · "+z.model:"")])]}):""}
+     ${d?fld("Port","apo",u.p??"",{full:true,select:[["","Choose a port…"],...d.ports.map((op,i)=>[i,`${op.kind.toUpperCase()} ${op.n}${op.label?" ("+op.label+")":""}${op.link?" — in use":""}`])]}):""}`:""}
+   ${fld("Notes","note",a.note||"",{area:true})}</div>`;
+  return {chain,plug};
+}
+const itgHint = a => a.itg?`<p class="hint" style="margin-top:-8px">From IT Glue${a.itg.org?" · "+esc(a.itg.org):""}${/^https:\/\//.test(a.itg.url)?` · <a href="${esc(a.itg.url)}" target="_blank" rel="noopener">Open in IT Glue ↗</a>`:""}</p>`:"";
+function renderDevPinInsp(el,s,a){
+  const dups=dupSet(), {chain,plug}=upParts(s,a,`${esc(a.label)}`);
+  el.innerHTML=`${roNote()}<button class="back" data-back="site">← ${esc(s.name)}</button><h2>${esc(a.label)}</h2><p class="sub">${esc(devCat(a).label)} · ${esc(floorName(s,a.floor))}${a.room?" · "+esc(a.room):""}</p>
+   ${itgHint(a)}
+   <div class="trace">${chain}</div>
+   <div class="fields" data-scope="ap">${fld("Type","cat",a.cat||"other",{select:Object.entries(DEV_CATS).map(([k,v])=>[k,v.label])})}${fld("Name","label",a.label,{ph:"PC-01"})}
+   ${fld("Floor","floor",a.floor,{select:s.floors.map(f=>[f.id,f.name])})}${fld("Room / area","room",a.room||"",{ph:"e.g. Reception"})}
+   ${fld("Model","model",a.model||"",{ph:"e.g. HP LaserJet M507"})}${fld("Serial","serial",a.serial||"",{mono:true})}
+   ${fld("IP address","ip",a.ip||"",{mono:true,ph:"10.0.20.50",bad:a.ip&&dups.has(a.ip.trim())})}${fld("MAC","mac",a.mac||"",{mono:true})}
+   ${fld("Assigned to","user",a.user||"",{full:true,ph:"Person or team who uses it"})}</div>
+   ${plug}
+   <p class="hint">Drag the marker to move it. Plug it into a wall port to trace it to the patch panel and switch.</p>
+   <div class="btnrow"><button class="btn${placeMode==="move"?" on":""}" data-act="movepin" ${readOnly?"disabled":""}>${placeMode==="move"?"Click the new spot… (Esc)":"Move on plan"}</button>${delBtn("pin:"+a.id,"Delete device")}</div>`;
+}
+function renderApInsp(el,s,a){
+  const dups=dupSet(), {chain,plug}=upParts(s,a,`Access point ${esc(a.label)}`);
   el.innerHTML=`${roNote()}<button class="back" data-back="site">← ${esc(s.name)}</button><h2>Access point ${esc(a.label)}</h2><p class="sub">${esc(floorName(s,a.floor))}${a.room?" · "+esc(a.room):""}</p>
-   ${a.itg?`<p class="hint" style="margin-top:-8px">From IT Glue${a.itg.org?" · "+esc(a.itg.org):""}${/^https:\/\//.test(a.itg.url)?` · <a href="${esc(a.itg.url)}" target="_blank" rel="noopener">Open in IT Glue ↗</a>`:""}</p>`:""}
+   ${itgHint(a)}
    <div class="trace">${chain}</div>
    <div class="fields" data-scope="ap">${fld("Name","label",a.label,{ph:"AP-01"})}${fld("Floor","floor",a.floor,{select:s.floors.map(f=>[f.id,f.name])})}
    ${fld("Room / area","room",a.room||"",{full:true,ph:"e.g. Open office ceiling"})}
@@ -1141,12 +1297,7 @@ function renderApInsp(el,s,a){
    ${fld("Networks (SSIDs)","ssids",a.ssids||"",{full:true,ph:"e.g. Office, Guest"})}
    ${fld("Power","poe",a.poe||"",{select:[["","—"],["PoE","PoE (802.3af)"],["PoE+","PoE+ (802.3at)"],["PoE++","PoE++ (802.3bt)"],["Adapter","Power adapter"]]})}
    <label>Coverage circle<input type="range" id="f_range" data-k="range" min="0.03" max="0.4" step="0.01" value="${a.range??.12}" ${readOnly?"disabled":""}></label></div>
-   <div class="sech">Plugged into</div>
-   <div class="fields" data-scope="ap">${fld("Connection","up",upVal,{full:true,select:[["","Not connected"],...jackOpts,["rack","Directly to a rack port…"]]})}
-   ${upVal==="rack"?`${fld("Rack","ar",u.r||"",{full:true,select:[["","Choose a rack…"],...siteRacks().map(z=>[z.id,z.name])]})}
-     ${r?fld("Device","ad",u.d||"",{full:true,select:[["","Choose a device…"],...r.devices.filter(z=>z.ports.length).map(z=>[z.id,z.name+(z.model?" · "+z.model:"")])]}):""}
-     ${d?fld("Port","apo",u.p??"",{full:true,select:[["","Choose a port…"],...d.ports.map((op,i)=>[i,`${op.kind.toUpperCase()} ${op.n}${op.label?" ("+op.label+")":""}${op.link?" — in use":""}`])]}):""}`:""}
-   ${fld("Notes","note",a.note||"",{area:true})}</div>
+   ${plug}
    <p class="hint">The shaded circle is a rough guide you set by eye, not a measured signal. Drag the marker to move it.</p>
    <div class="btnrow"><button class="btn${placeMode==="move"?" on":""}" data-act="movepin" ${readOnly?"disabled":""}>${placeMode==="move"?"Click the new spot… (Esc)":"Move on plan"}</button>${delBtn("pin:"+a.id,"Delete access point")}</div>`;
 }
@@ -1180,34 +1331,36 @@ function placePin(e){
   const s=site(), f=floor(), plan=$("#plan"); if(!s||!f||!plan) return;
   const b=plan.getBoundingClientRect(); const x=Math.max(0,Math.min(1,(e.clientX-b.left)/b.width)), y=Math.max(0,Math.min(1,(e.clientY-b.top)/b.height));
   s.pins ||= [];
-  if(placeMode==="move"){ const p=s.pins.find(z=>z.id===sel.pin); placeMode=null; if(p){ p.x=x; p.y=y; p.floor=f.id; saveSite(); toast(`${p.kind==="rack"?"Rack marker":p.kind==="ap"?"Access point "+p.label:"Wall port "+p.label} moved.`); } else renderSite(); return; }
+  if(placeMode==="move"){ const p=s.pins.find(z=>z.id===sel.pin); placeMode=null; if(p){ p.x=x; p.y=y; p.floor=f.id; saveSite(); toast(`${pinKindName(p)} moved.`); } else renderSite(); return; }
   if(placeMode==="jack"){ const used=new Set(s.pins.map(p=>p.label)); let i=s.pins.filter(p=>p.kind==="jack").length+1; while(used.has(`WP-${pad2(i)}`)) i++;
     const p={id:uid(),kind:"jack",floor:f.id,x,y,label:`WP-${pad2(i)}`,room:"",ports:[newJackPort()],note:""}; s.pins.push(p); sel={dev:null,port:null,slot:null,pin:p.id}; }
   else if(placeMode==="ap"){ const used=new Set(s.pins.map(p=>p.label)); let i=s.pins.filter(p=>p.kind==="ap").length+1; while(used.has(`AP-${pad2(i)}`)) i++;
     const p={id:uid(),kind:"ap",floor:f.id,x,y,label:`AP-${pad2(i)}`,room:"",model:"",ip:"",mac:"",ssids:"",band:"",poe:"",range:.12,up:null,note:""}; s.pins.push(p); sel={dev:null,port:null,slot:null,pin:p.id}; placeMode=null; }
+  else if(placeMode==="dev"){ const p={id:uid(),kind:"dev",cat:lastCat,floor:f.id,x,y,label:nextDevLabel(s,lastCat),room:"",model:"",serial:"",ip:"",mac:"",user:"",up:null,note:""}; s.pins.push(p); sel={dev:null,port:null,slot:null,pin:p.id}; placeMode=null; }
   else { const taken=new Set(s.pins.filter(p=>p.kind==="rack").map(p=>p.rack)); const r=siteRacks().find(x=>!taken.has(x.id));
     const p={id:uid(),kind:"rack",floor:f.id,x,y,label:"",room:"",rack:r?.id||""}; s.pins.push(p); sel={dev:null,port:null,slot:null,pin:p.id}; placeMode=null; }
   saveSite();
 }
 
 /* move one end of a cable to another port; the other end stays put */
-function canDrop(r,a,i,b,j){
+function canDrop(ra,a,i,rb,b,j){
   if(a.id===b.id&&i===j) return {ok:false};
   const src=a.ports[i], tgt=b.ports[j];
-  if(src.link&&src.link.d===b.id&&src.link.p===j) return {ok:false,msg:"That's the other end of this cable."};
+  if(pointsAt(ra,src,rb,b,j)) return {ok:false,msg:"That's the other end of this cable."};
   if(tgt.link||tgt.ext) return {ok:false,msg:`${portName(b,j)} is already in use. Disconnect it first.`};
   return {ok:true};
 }
-function movePortEnd(r,a,i,b,j){
-  const c=canDrop(r,a,i,b,j); if(!c.ok){ if(c.msg) toast(c.msg); return false; }
-  const src=a.ports[i], tgt=b.ports[j], cab={cable:src.cable,color:src.color,len:src.len};
-  if(src.link){ const peerDev=devById(r,src.link.d), pp=src.link.p, peer=peerDev?.ports[pp];
+function movePortEnd(ra,a,i,rb,b,j){
+  const c=canDrop(ra,a,i,rb,b,j); if(!c.ok){ if(c.msg) toast(c.msg); return false; }
+  const src=a.ports[i], tgt=b.ports[j], cab={cable:src.cable,color:src.color,len:src.len}, bn=(rb.id!==ra.id?rb.name+" · ":"")+portName(b,j);
+  if(src.link){ const pe=peer(ra,src);
     src.link=null; Object.assign(src,{cable:"",color:"",len:""});
-    tgt.link={d:peerDev.id,p:pp}; if(peer) peer.link={d:b.id,p:j}; Object.assign(tgt,cab);
-    toast(`Cable moved to ${portName(b,j)}. Other end stays on ${portName(peerDev,pp)}.`); }
+    if(pe){ tgt.link=mkLink(rb,pe.r,pe.d,pe.i); pe.pt.link=mkLink(pe.r,rb,b,j); touch(pe.r); } Object.assign(tgt,cab);
+    toast(`Cable moved to ${bn}. Other end stays on ${peerName(rb,pe)}.`); }
   else if(src.ext){ tgt.ext=src.ext; Object.assign(tgt,cab); src.ext=""; Object.assign(src,{cable:"",color:"",len:""});
-    toast(`Cable to ${tgt.ext} moved to ${portName(b,j)}.`); }
-  else { linkPorts(r,a,i,b,j); toast(`Connected ${portName(a,i)} to ${portName(b,j)}.`); }
+    toast(`Cable to ${tgt.ext} moved to ${bn}.`); }
+  else { linkPorts(ra,a,i,rb,b,j); toast(`Connected ${portName(a,i)} to ${bn}.`); }
+  touch(ra); touch(rb); curId=rb.id;
   sel={dev:b.id,port:j,slot:null,pin:null}; $("#insp").dataset.pendDev=""; saveRack(); return true;
 }
 
@@ -1345,7 +1498,8 @@ document.addEventListener("click",e=>{
   if(t.id==="siteBtn"){ menuOpen=!menuOpen; renderSide(); return; }
   if(t.dataset.site){ curSite=t.dataset.site; curFloor=null; menuOpen=false; view="site"; placeMode=null; sel={dev:null,port:null,slot:null,pin:null}; armed=null; pickDefaults(); render(); return; }
   if(t.dataset.view){ view=t.dataset.view; placeMode=null; armed=null; if(view!=="site") sel.pin=null; render(); return; }
-  if(t.dataset.rack){ curId=t.dataset.rack; view=view==="table"?"table":"rack"; placeMode=null; sel={dev:null,port:null,slot:null,pin:null}; armed=null; render(); return; }
+  if(t.dataset.rack){ curId=t.dataset.rack; view=view==="table"||view==="racks"?view:"rack"; placeMode=null; sel={dev:null,port:null,slot:null,pin:null}; armed=null; render();
+    if(view==="racks") document.querySelector(`[data-mr="${curId}"]`)?.scrollIntoView({block:"nearest",inline:"center",behavior:"smooth"}); return; }
   const act=t.dataset.act;
   if(act==="newsite") return createSite();
   if(act==="wsswitch") return Workspace.switch();
@@ -1360,6 +1514,7 @@ document.addEventListener("click",e=>{
   if(act==="copyaddr"){ const a=(s.address||"").trim(); navigator.clipboard?.writeText(a).then(()=>toast("Address copied."),()=>toast("Select the address and copy it.")); return; }
   if(t.dataset.floor){ curFloor=t.dataset.floor; sel.pin=null; armed=null; render(); return; }
   if(act==="addfloor"){ if(readOnly) return; const f={id:uid(),name:`Floor ${s.floors.length+1}`,plan:null}; s.floors.push(f); curFloor=f.id; sel.pin=null; saveSite(); return; }
+  if(act==="placedev"){ placeMode = placeMode==="dev"?null:"dev"; if(placeMode) toast("Click the floor plan where the device is: a printer, PC, phone, camera…"); renderSite(); return; }
   if(act==="placeap"){ placeMode = placeMode==="ap"?null:"ap"; if(placeMode) toast("Click the floor plan where the access point is mounted."); renderSite(); return; }
   if(act==="cov"){ showCov=!showCov; renderSite(); return; }
   if(act==="placejack"||act==="placerack"){ const m=act==="placejack"?"jack":"rack"; placeMode = placeMode===m?null:m; if(placeMode) toast(m==="jack"?"Click the floor plan where each wall port is. Press Esc when done.":"Click where the rack sits on the floor plan."); renderSite(); return; }
@@ -1374,6 +1529,8 @@ document.addEventListener("click",e=>{
   if(act==="movepin"){ placeMode = placeMode==="move"?null:"move"; if(placeMode){ const p=site()?.pins.find(z=>z.id===sel.pin); if(p&&p.floor!==floor()?.id){ curFloor=p.floor; } toast("Click the floor plan where this marker should go."); } render(); return; }
   if(act==="zin"){ zoom=Math.min(4,+(zoom*1.25).toFixed(2)); renderSite(); return; }
   if(act==="zout"){ zoom=Math.max(.5,+(zoom/1.25).toFixed(2)); renderSite(); return; }
+  if(act==="mzin"||act==="mzout"){ const z=+($("#rw")?.dataset.z||1); mz=Math.max(.4,Math.min(1.6,+(z*(act==="mzin"?1.2:1/1.2)).toFixed(2))); renderAll(); return; }
+  if(act==="mzfit"){ mz=null; renderAll(); return; }
   if(act==="zfit"){ zoom=1; renderSite(); return; }
   if(t.dataset.pin){ if(t.dataset.pin!==sel.pin) openJ=0; selectPin(t.dataset.pin); return; }
   if(t.dataset.pinrow){ openJ=+(t.dataset.j||0); const p=pinsAll().find(x=>x.p.id===t.dataset.pinrow); if(p){ curSite=p.s.id; curFloor=p.p.floor; view="site"; selectPin(p.p.id); } return; }
@@ -1384,23 +1541,23 @@ document.addEventListener("click",e=>{
   if(t.dataset.actf){ actFilter=t.dataset.actf; renderActivity(); return; }
   if(t.dataset.type && t.closest("#lib")){ if(!r) return toast(site()?"Create a rack first.":"Add a site first."); if(readOnly) return; const h=TYPES[t.dataset.type].h, u=firstFree(r,h); if(u==null) return toast(`No ${h}U gap left in this rack.`); const d=newDevice(r,t.dataset.type,u); r.devices.push(d); view="rack"; sel={dev:d.id,port:null,slot:null,pin:null}; saveRack(); afterAdd(d); return; }
   if(t.dataset.addat){ if(readOnly||!r) return; const ty=t.dataset.addat; if(!fits(r,sel.slot,TYPES[ty].h)) return; const d=newDevice(r,ty,sel.slot); r.devices.push(d); sel={dev:d.id,port:null,slot:null,pin:null}; saveRack(); afterAdd(d); return; }
-  if(t.classList.contains("port")){ e.stopPropagation(); select(t.dataset.d,+t.dataset.p); return; }
+  if(t.classList.contains("port")){ e.stopPropagation(); if(S.racks[t.dataset.r]) curId=t.dataset.r; select(t.dataset.d,+t.dataset.p); return; }
   if(t.matches("tr.click")){ const p=t.dataset.p; view="rack"; select(t.dataset.d, p===""?null:+p); return; }
-  if(t.dataset.dev){ select(t.dataset.dev); return; }
+  if(t.dataset.dev){ const mr=t.closest("[data-mr]"); if(mr) curId=mr.dataset.mr; select(t.dataset.dev); return; }
   if(t.classList.contains("slot")){ if(readOnly) return; sel={dev:null,port:null,slot:+t.dataset.u,pin:null}; render(); return; }
   if(t.dataset.back==="rack"){ select(null); return; }
   if(t.dataset.back==="dev"){ select(sel.dev); return; }
   if(t.dataset.back==="site"){ selectPin(null); return; }
   if(t.dataset.pp!=null){ select(sel.dev,+t.dataset.pp); return; }
-  if(t.dataset.goto){ const [d,p]=t.dataset.goto.split(":"); select(d,+p); return; }
+  if(t.dataset.goto){ const [rid,d,p]=t.dataset.goto.split(":"); if(S.racks[rid]) curId=rid; select(d,+p); return; }
   if(t.dataset.nudge){ const d=devById(r,sel.dev); if(d) nudge(d,+t.dataset.nudge); return; }
   if(t.dataset.del){ if(armed!==t.dataset.del){ armed=t.dataset.del; renderInsp(); return; }
     const k=t.dataset.del; armed=null;
-    if(k==="rack"){ for(const x of pinsAll()) if(x.p.kind==="ap"&&x.p.up?.r===curId){ x.p.up=null; persist("sites",x.s.id); } }
-    if(k==="rack"){ const id=curId; for(const x of pinsAll()){ let ch=false; for(const jpo of jp(x.p)) if(jpo.link?.r===id){ jpo.link=null; ch=true; } if(x.p.rack===id){ x.p.rack=""; ch=true; } if(ch) persist("sites",x.s.id); }
+    if(k==="rack"){ for(const x of pinsAll()) if(hasUp(x.p)&&x.p.up?.r===curId){ x.p.up=null; persist("sites",x.s.id); } }
+    if(k==="rack"){ const id=curId; const rr=S.racks[id]; for(const d of rr.devices) d.ports.forEach((pt,i)=>{ if(pt.link?.r&&pt.link.r!==id) unlinkPort(rr,d,i); }); touched.delete(id); flushTouched(); for(const x of pinsAll()){ let ch=false; for(const jpo of jp(x.p)) if(jpo.link?.r===id){ jpo.link=null; ch=true; } if(x.p.rack===id){ x.p.rack=""; ch=true; } if(ch) persist("sites",x.s.id); }
       delete S.racks[id]; persist("racks",id); curId=null; pickDefaults(); render(); toast("Rack deleted."); return; }
     if(k.startsWith("dev:")){ const id=k.slice(4), d=devById(r,id); d.ports.forEach((_,i)=>unlinkPort(r,d,i));
-      for(const x of pinsAll()){ for(const jpo of jp(x.p)) if(jpo.link?.r===r.id && jpo.link.d===id){ jpo.link=null; persist("sites",x.s.id); } if(x.p.kind==="ap"&&x.p.up?.r===r.id&&x.p.up.d===id){ x.p.up=null; persist("sites",x.s.id); } }
+      for(const x of pinsAll()){ for(const jpo of jp(x.p)) if(jpo.link?.r===r.id && jpo.link.d===id){ jpo.link=null; persist("sites",x.s.id); } if(hasUp(x.p)&&x.p.up?.r===r.id&&x.p.up.d===id){ x.p.up=null; persist("sites",x.s.id); } }
       r.devices=r.devices.filter(x=>x.id!==id); sel={dev:null,port:null,slot:null,pin:null}; saveRack(); toast(`${d.name} removed.`); return; }
     if(k==="site"){ const id=curSite; const plans=s.floors.filter(f=>f.plan?.asset).map(f=>f.plan.asset);
       for(const f of s.floors) dropPlanStorage(f.plan);
@@ -1413,7 +1570,7 @@ document.addEventListener("click",e=>{
     if(k.startsWith("plan:")){ const f=s.floors.find(x=>x.id===k.slice(5)); const old=f.plan; f.plan=null; saveSite();
       dropPlanStorage(old);
       toast("Floor plan removed. Wall ports stay where they were."); return; }
-    if(k.startsWith("pin:")){ const gone=k.slice(4); for(const a of s.pins) if(a.kind==="ap"&&a.up?.pin===gone) a.up=null; s.pins=s.pins.filter(p=>p.id!==gone); sel.pin=null; saveSite(); toast("Marker deleted."); return; } }
+    if(k.startsWith("pin:")){ const gone=k.slice(4); for(const a of s.pins) if(hasUp(a)&&a.up?.pin===gone) a.up=null; s.pins=s.pins.filter(p=>p.id!==gone); sel.pin=null; saveSite(); toast("Marker deleted."); return; } }
   if(act==="unlink"){ const d=devById(r,sel.dev); unlinkPort(r,d,sel.port); d.ports[sel.port].ext=""; $("#insp").dataset.pendDev=""; saveRack(); return; }
   if(act==="applyports"){ const d=devById(r,sel.dev); const want={rj45:+$("#f_rj45").value||0,sfp:+$("#f_sfp").value||0,lc:+$("#f_lc").value||0}; setPortCounts(r,d,want); saveRack(); return; }
   if(act==="setupcustom"){ openCustomSetup(sel.dev,false); return; }
@@ -1427,9 +1584,11 @@ document.addEventListener("change",e=>{
   if(scope==="site"){ const s=site(); s[k]=k==="address"||k==="notes"?v.trim():v.trim(); if(k==="name"&&!s.name) s.name="Untitled site"; saveSite(); return; }
   if(scope==="floor"){ const f=site().floors.find(x=>x.id===scopeEl.dataset.fid); f.name=v.trim()||f.name; saveSite(); return; }
   if(scope==="ap"){ const s=site(), a=s.pins.find(x=>x.id===sel.pin); if(!a) return;
-    if(k==="up"){ if(a.up?.pin){ const oj=s.pins.find(z=>z.id===a.up.pin), ox=oj&&jp(oj)[a.up.j]; if(ox&&ox.endpoint==="Access point "+a.label) ox.endpoint=""; }
-      if(!v) a.up=null; else if(v==="rack") a.up={r:"",d:"",p:null}; else { const [,pid,j]=v.split(":"); const other=s.pins.find(z=>z.kind==="ap"&&z.id!==a.id&&z.up?.pin===pid&&z.up.j===+j); if(other){ other.up=null; toast(`${other.label} was unplugged from that wall port.`); }
-        a.up={pin:pid,j:+j}; const jack=s.pins.find(z=>z.id===pid), x=jack&&jp(jack)[+j]; if(x&&!x.endpoint) x.endpoint="Access point "+a.label; } }
+    if(k==="up"){ if(a.up?.pin){ const oj=s.pins.find(z=>z.id===a.up.pin), ox=oj&&jp(oj)[a.up.j]; if(ox&&ox.endpoint===endpointName(a)) ox.endpoint=""; }
+      if(!v) a.up=null; else if(v==="rack") a.up={r:"",d:"",p:null}; else { const [,pid,j]=v.split(":"); const other=s.pins.find(z=>hasUp(z)&&z.id!==a.id&&z.up?.pin===pid&&z.up.j===+j); if(other){ other.up=null; toast(`${other.label} was unplugged from that wall port.`); }
+        a.up={pin:pid,j:+j}; const jack=s.pins.find(z=>z.id===pid), x=jack&&jp(jack)[+j]; if(x&&!x.endpoint) x.endpoint=endpointName(a); } }
+    else if(k==="cat"){ const oldCode=devCat(a).code; a.cat=v; lastCat=v; if(new RegExp(`^${oldCode}-\\d+$`).test(a.label||"")){ const was=a.label, nl=nextDevLabel(s,v); a.label=nl; if(a.up?.pin){ const jk=s.pins.find(z=>z.id===a.up.pin), x=jk&&jp(jk)[a.up.j]; if(x&&x.endpoint===was) x.endpoint=nl; } } }
+    else if(k==="label"&&a.up?.pin){ const was=endpointName(a); a.label=v.trim(); const jk=s.pins.find(z=>z.id===a.up.pin), x=jk&&jp(jk)[a.up.j]; if(x&&x.endpoint===was) x.endpoint=endpointName(a); }
     else if(k==="ar") a.up={r:v,d:"",p:null};
     else if(k==="ad") a.up={...a.up,d:v,p:null};
     else if(k==="apo") a.up={...a.up,p:v===""?null:+v};
@@ -1459,15 +1618,16 @@ document.addEventListener("change",e=>{
   if(scope==="port"){ const p=sel.port, pt=d.ports[p];
     if(k==="linkd"){ if(v===""){ unlinkPort(r,d,p); pt.ext=""; $("#insp").dataset.pendDev=""; saveRack(); return; }
       $("#insp").dataset.pendDev=v; if(v==="__ext") unlinkPort(r,d,p); renderInsp(); return; }
-    if(k==="linkp"){ if(v==="") return; const o=devById(r,$("#insp").dataset.pendDev||pt.link?.d); if(!o) return; linkPorts(r,d,p,o,+v); $("#insp").dataset.pendDev=""; saveRack(); toast(`Connected to ${portName(o,+v)}.`); return; }
-    if(k==="moveto"){ if(!v) return; const [bd,bj]=v.split(":"); const b=devById(r,bd); if(b) movePortEnd(r,d,p,b,+bj); return; }
+    if(k==="linkp"){ if(v==="") return; const pe=peer(r,pt); const [orid,odid]=($("#insp").dataset.pendDev||(pe?pe.r.id+":"+pe.d.id:"")).split(":"); const or=S.racks[orid], o=devById(or,odid); if(!o) return;
+      linkPorts(r,d,p,or,o,+v); $("#insp").dataset.pendDev=""; saveRack(); toast(`Connected to ${(or.id!==r.id?or.name+" · ":"")+portName(o,+v)}.`); return; }
+    if(k==="moveto"){ if(!v) return; const [br,bd,bj]=v.split(":"); const rb=S.racks[br], b=devById(rb,bd); if(b) movePortEnd(r,d,p,rb,b,+bj); return; }
     if(k==="ext"){ unlinkPort(r,d,p); pt.ext=v.trim(); $("#insp").dataset.pendDev=""; saveRack(); return; }
     pt[k]=v.trim(); if(["cable","color","len"].includes(k)) syncCable(r,d,p); saveRack(); return; }
 });
 document.addEventListener("input",e=>{ if(e.target.id!=="f_range") return; const a=site()?.pins.find(x=>x.id===sel.pin); const c=document.querySelector(".cov.sel"); if(a&&c) c.style.width=(+e.target.value*200)+"%"; });
-$("#q").addEventListener("input",e=>{ q=e.target.value.trim(); if(view==="site") renderSite(); else if(view==="rack") renderRack(); else if(view==="activity") renderActivity(); else renderTable(); });
+$("#q").addEventListener("input",e=>{ q=e.target.value.trim(); if(view==="site") renderSite(); else if(view==="rack") renderRack(); else if(view==="racks") renderAll(); else if(view==="activity") renderActivity(); else renderTable(); });
 document.addEventListener("change",e=>{ if(e.target.id==="actPerson"){ actPerson=e.target.value; renderActivity(); } });
-window.addEventListener("resize",()=>requestAnimationFrame(drawCables));
+window.addEventListener("resize",()=>requestAnimationFrame(()=>{ if(view==="racks"&&mz==null&&!pd) renderAll(); else drawCables(); }));
 
 /* ---------- drag (rack devices, library items, floor plan markers) ---------- */
 let pd=null, justDragged=false, lastEv=null;
@@ -1481,8 +1641,8 @@ function startDrag(){
   pd.started=true; document.body.classList.add("dragging-any");
   if(pd.kind==="pin"){ pd.el.classList.add("dragging"); $("#plan")?.classList.add("pinmove"); sel.pin=pd.id; const c=document.createElement("div"); c.id="dragchip"; c.className="dragchip"; c.textContent=pd.el.querySelector("span")?.textContent||"Marker"; document.body.appendChild(c); scrollLoop(); return; }
   if(pd.kind==="resize"){ pd.el.classList.add("resizing"); document.querySelectorAll(".cables").forEach(x=>x.classList.add("hide")); sel={dev:pd.id,port:null,slot:null,pin:null}; scrollLoop(); return; }
-  if(pd.kind==="port"){ pd.el.classList.add("dragsrc"); const r=rack(), src=devById(r,pd.d)?.ports[pd.p];
-    pd.anchor = src?.link ? $(`#rbody .port[data-d="${src.link.d}"][data-p="${src.link.p}"]`) : pd.el;
+  if(pd.kind==="port"){ pd.el.classList.add("dragsrc"); const r=S.racks[pd.r], src=devById(r,pd.d)?.ports[pd.p], pe=peer(r,src);
+    pd.anchor = (pe && $(`#rw .port[data-r="${pe.r.id}"][data-d="${pe.d.id}"][data-p="${pe.i}"]`)) || pd.el;
     pd.stroke = COLORS[src?.color]||src?.color||"var(--accent)";
     document.querySelectorAll(".cables path").forEach(x=>x.classList.add("moving"));
     scrollLoop(); return; }
@@ -1498,10 +1658,11 @@ function moveDrag(e){
   if(pd.kind==="resize"){ const r=rack(), b=bodyRect(); if(!b) return; const y=e.clientY-b.top; const at=r.units-Math.floor(y/UH);
     const u=Math.max(1,Math.min(pd.top,at)); pd.u=u; pd.h=pd.top-u+1; const ok=fits(r,u,pd.h,pd.id);
     pd.el.style.height=(pd.h*UH-2)+"px"; ghostAt(u,ok); return; }
-  if(pd.kind==="port"){ const rw=$("#rw"), svg=$("#cables"); if(!rw||!svg) return; const box=rw.getBoundingClientRect(), r=rack();
+  if(pd.kind==="port"){ const rw=$("#rw"), svg=$("#cables"); if(!rw||!svg) return; const box=rw.getBoundingClientRect(), ra=S.racks[pd.r];
+    { const st=$("#stage").getBoundingClientRect(); pd.scrollX = e.clientX<st.left+48 ? -1 : e.clientX>st.right-48 ? 1 : 0; }
     document.querySelectorAll(".drop-ok,.drop-bad").forEach(x=>x.classList.remove("drop-ok","drop-bad")); pd.tgt=null;
-    const under=document.elementFromPoint(e.clientX,e.clientY)?.closest?.("#rbody .port");
-    if(under && under!==pd.el){ const b=devById(r,under.dataset.d), j=+under.dataset.p, c=canDrop(r,devById(r,pd.d),pd.p,b,j); under.classList.add(c.ok?"drop-ok":"drop-bad"); pd.tgt={d:b.id,p:j,ok:c.ok}; }
+    const under=document.elementFromPoint(e.clientX,e.clientY)?.closest?.("#rw .port");
+    if(under && under!==pd.el){ const rb=S.racks[under.dataset.r], b=devById(rb,under.dataset.d), j=+under.dataset.p; if(rb&&b){ const c=canDrop(ra,devById(ra,pd.d),pd.p,rb,b,j); under.classList.add(c.ok?"drop-ok":"drop-bad"); pd.tgt={r:rb.id,d:b.id,p:j,ok:c.ok}; } }
     const a=(pd.anchor||pd.el).getBoundingClientRect(); const ax=a.left-box.left+a.width/2, ay=a.top-box.top+a.height/2, cx=e.clientX-box.left, cy=e.clientY-box.top;
     let g=svg.querySelector("#dragg"); if(!g){ svg.insertAdjacentHTML("beforeend",`<g id="dragg"><path class="dragline"></path><circle class="dragdot" r="4"></circle></g>`); g=svg.querySelector("#dragg"); }
     const mx=Math.max(ax,cx)+40; g.firstElementChild.setAttribute("d",`M${ax} ${ay} C${mx} ${ay} ${mx} ${cy} ${cx} ${cy}`); g.firstElementChild.setAttribute("stroke",pd.stroke);
@@ -1525,6 +1686,7 @@ function moveDrag(e){
 }
 function scrollLoop(){ if(!pd||!pd.started) return;
   let moved=false; if(pd.scroll&&lastEv){ $("#stage").scrollTop+=pd.scroll*14; moved=true; }
+  if(pd.scrollX&&lastEv){ $("#stage").scrollLeft+=pd.scrollX*14; moved=true; }
   if(pd.kind==="pin"&&(pd.psx||pd.psy)){ const ps=$("#planScroll"); if(ps){ ps.scrollLeft+=(pd.psx||0)*12; ps.scrollTop+=(pd.psy||0)*12; moved=true; } }
   if(moved&&lastEv) moveDrag(lastEv); requestAnimationFrame(scrollLoop); }
 function endDrag(commit){
@@ -1536,9 +1698,9 @@ function endDrag(commit){
     if(commit&&d){ if(fits(r,p.u,p.h,p.id)){ if(d.h!==p.h||d.u!==p.u){ d.u=p.u; d.h=p.h; saveRack(); toast(`${d.name} is now ${d.h}U (U${d.u}${d.h>1?"–"+(d.u+d.h-1):""}).`); return; } } else toast("Another device is in the way. Move it first or pick a smaller size."); }
     render(); return; }
   if(p.kind==="port"){ document.querySelectorAll(".drop-ok,.drop-bad").forEach(x=>x.classList.remove("drop-ok","drop-bad"));
-    const r=rack(); if(commit && p.tgt && r){ const a=devById(r,p.d), b=devById(r,p.tgt.d); if(a&&b&&movePortEnd(r,a,p.p,b,p.tgt.p)) return; }
+    const ra=S.racks[p.r], rb=S.racks[p.tgt?.r]; if(commit && p.tgt && ra && rb){ const a=devById(ra,p.d), b=devById(rb,p.tgt.d); if(a&&b&&movePortEnd(ra,a,p.p,rb,b,p.tgt.p)) return; }
     render(); return; }
-  if(p.kind==="pin"){ const s=site(), pin=s?.pins.find(x=>x.id===p.id); if(commit&&pin&&p.fx!=null){ pin.x=p.fx; pin.y=p.fy; sel={dev:null,port:null,slot:null,pin:pin.id}; saveSite(); toast(`${pin.kind==="rack"?"Rack marker":pin.kind==="ap"?"Access point "+pin.label:"Wall port "+pin.label} moved.`); return; } render(); return; }
+  if(p.kind==="pin"){ const s=site(), pin=s?.pins.find(x=>x.id===p.id); if(commit&&pin&&p.fx!=null){ pin.x=p.fx; pin.y=p.fy; sel={dev:null,port:null,slot:null,pin:pin.id}; saveSite(); toast(`${pinKindName(pin)} moved.`); return; } render(); return; }
   const r=rack();
   if(commit && p.u!=null && r){
     if(p.kind==="dev"){ const d=devById(r,p.id); if(fits(r,p.u,p.h,p.id)){ if(d.u!==p.u){ d.u=p.u; saveRack(); const shortN=d.ports.filter((_,i)=>shortCable(r,d,i)).length;
@@ -1553,10 +1715,10 @@ document.addEventListener("pointerdown",e=>{
   const devEl=e.target.closest(".dev"), lib=e.target.closest("#lib button[data-type]"), pinEl=e.target.closest(".pin");
   const rzEl=e.target.closest("[data-rz]");
   if(rzEl){ const d=devById(rack(),rzEl.dataset.rz); if(!d) return; pd={kind:"resize",id:d.id,h:d.h,top:d.u+d.h-1,el:rzEl.closest(".dev"),x:e.clientX,y:e.clientY,started:false,touch:false,u:d.u,scroll:0}; e.stopPropagation(); return; }
-  const portEl=e.target.closest("#rbody .port");
-  if(portEl && view==="rack"){ const d=devById(rack(),portEl.dataset.d); if(!d) return; pd={kind:"port",d:d.id,p:+portEl.dataset.p,el:portEl}; }
+  const portEl=e.target.closest("#rw .port");
+  if(portEl && (view==="rack"||view==="racks")){ const pr=S.racks[portEl.dataset.r], d=devById(pr,portEl.dataset.d); if(!d) return; pd={kind:"port",r:pr.id,d:d.id,p:+portEl.dataset.p,el:portEl}; }
   else if(pinEl){ if(placeMode==="move") return; const s=site(); const p=s?.pins.find(x=>x.id===pinEl.dataset.pin); if(!p) return; pd={kind:"pin",id:p.id,el:pinEl}; }
-  else if(devEl && !e.target.closest(".port")){ const d=devById(rack(),devEl.dataset.dev); if(!d) return; pd={kind:"dev",id:d.id,h:d.h,el:devEl}; }
+  else if(devEl && view==="rack" && !e.target.closest(".port")){ const d=devById(rack(),devEl.dataset.dev); if(!d) return; pd={kind:"dev",id:d.id,h:d.h,el:devEl}; }
   else if(lib && rack()){ pd={kind:"lib",type:lib.dataset.type,h:TYPES[lib.dataset.type].h}; }
   else return;
   Object.assign(pd,{x:e.clientX,y:e.clientY,started:false,touch:e.pointerType==="touch",u:null,scroll:0});
@@ -1592,21 +1754,36 @@ async function loadSample(){
   const fpp=add("fiber",42,"Fiber patch panel · ISP"), rt=add("router",40,"Edge router","10.0.0.1"), fw=add("firewall",39,"Firewall","10.0.0.2"),
     pp=add("patch",38,"Cat6 patch panel · Floor 1"), sw=add("switch48",37,"Access switch 48","10.0.0.10"); add("manager",36,"Cable manager");
   const srv=add("server",30,"Hypervisor host","10.0.10.11"), nas=add("nas",26,"Backup NAS","10.0.10.20"), ups=add("ups",1,"UPS 3000VA","10.0.0.30");
-  const L=(a,i,b,j,cable,color,len)=>{ linkPorts(R,a,i,b,j); Object.assign(a.ports[i],{cable,color,len}); Object.assign(b.ports[j],{cable,color,len}); };
+  const L=(a,i,b,j,cable,color,len)=>{ linkPorts(R,a,i,R,b,j); Object.assign(a.ports[i],{cable,color,len}); Object.assign(b.ports[j],{cable,color,len}); };
   Object.assign(fpp.ports[0],{ext:"ISP demarc",label:"WAN",cable:"F-001",color:"aqua"});
   L(fpp,1,rt,4,"F-002","aqua","1 m"); L(rt,0,fw,0,"C-010","red","0.5 m"); L(fw,1,sw,48,"C-011","yellow","1 m");
   for(let i=0;i<6;i++) L(pp,i,sw,i,"C-1"+pad2(i),"blue","0.3 m");
   L(sw,40,srv,0,"C-200","green","2 m"); L(sw,41,srv,1,"C-201","green","2 m"); L(sw,42,nas,0,"C-210","green","2 m"); L(sw,46,ups,0,"C-220","grey","3 m");
   Object.assign(srv.ports[4],{label:"iDRAC",ip:"10.0.10.111"}); sw.ports[0].vlan="20";
+  // a second rack next door, cabled to the first through the cable tray
+  const R2={id:uid(),siteId:"",name:"Example Rack 2 (sample)",location:"Server room",units:42,notes:"Second sample rack.",devices:[]};
+  const add2=(type,u,model,ip)=>{ const d=newDevice(R2,type,u); d.model=model; d.ip=ip||""; R2.devices.push(d); return d; };
+  const pp2=add2("patch",40,"Cat6 patch panel · Floor 1 east"), sw2=add2("switch",39,"Server switch 24","10.0.0.11"); add2("manager",38,"Cable manager");
+  const app=add2("server",33,"App server","10.0.10.31"), db2=add2("server",30,"Database server","10.0.10.32"), ups2=add2("ups",1,"UPS 2200VA","10.0.0.31");
+  const L2=(ra,a,i,rb,b,j,cable,color,len)=>{ linkPorts(ra,a,i,rb,b,j); Object.assign(a.ports[i],{cable,color,len}); Object.assign(b.ports[j],{cable,color,len}); };
+  L2(R,sw,49,R2,sw2,24,"F-020","aqua","3 m"); L2(R2,app,0,R2,sw2,0,"C-300","green","1 m"); L2(R2,db2,0,R2,sw2,1,"C-301","green","1 m");
+  L2(R2,ups2,0,R2,sw2,20,"C-302","grey","2.5 m"); L2(R,sw,44,R2,app,4,"C-310","orange","3 m"); Object.assign(app.ports[4],{label:"iLO",ip:"10.0.10.131"});
+  for(let i=0;i<2;i++) L2(R2,pp2,i,R2,sw2,10+i,"C-4"+pad2(i),"blue","0.3 m");
   const S2={id:uid(),name:"Head Office (sample)",address:"123 Example Street\nSample City",contact:"",notes:"Sample site. Replace with your own.",floors:[{id:uid(),name:"Ground floor",plan:null}],pins:[]};
-  R.siteId=S2.id; const fl=S2.floors[0].id;
+  R.siteId=S2.id; R2.siteId=S2.id; const fl=S2.floors[0].id;
   const J=(label,x,y,room,port,endpoint,eip)=>S2.pins.push({id:uid(),kind:"jack",floor:fl,x:x/1600,y:y/1000,label,room,ports:[{link:port==null?null:{r:R.id,d:pp.id,p:port},cable:"W-"+label,endpoint:endpoint||"",eip:eip||"",mac:""}],note:""});
   J("1-01",120,60,"Reception",0,"Reception PC","10.0.20.21"); J("1-02",380,60,"Reception",1,"Reception phone","10.0.30.11"); J("1-03",480,200,"Open office",2,"Desk 3 PC","10.0.20.33");
   J("1-04",700,580,"Open office",3,"Printer","10.0.20.50"); J("1-05",60,470,"Office 101",4); J("1-06",1140,450,"Meeting room",5,"Meeting room display","10.0.20.60"); J("1-07",620,940,"Office 103",null);
-  S2.pins.push({id:uid(),kind:"rack",floor:fl,x:1360/1600,y:170/1000,label:"",room:"Server room",rack:R.id});
-  S.sites[S2.id]=S2; S.racks[R.id]=R; curSite=S2.id; curFloor=fl; curId=R.id; view="site";
+  S2.pins.push({id:uid(),kind:"rack",floor:fl,x:1330/1600,y:120/1000,label:"",room:"Server room",rack:R.id});
+  S2.pins.push({id:uid(),kind:"rack",floor:fl,x:1330/1600,y:225/1000,label:"",room:"Server room",rack:R2.id});
+  const byLabel=l=>S2.pins.find(p=>p.label===l);
+  const DV=(cat,label,x,y,room,model,ip,jack,user)=>S2.pins.push({id:uid(),kind:"dev",cat,floor:fl,x:x/1600,y:y/1000,label,room,model,serial:"",ip,mac:"",user:user||"",up:jack?{pin:byLabel(jack).id,j:0}:null,note:""});
+  DV("pc","PC-01",190,175,"Reception","Dell OptiPlex 7010","10.0.20.21","1-01","Front desk"); DV("phone","PH-01",330,260,"Reception","Yealink T54W","10.0.30.11","1-02");
+  DV("printer","PRN-01",830,560,"Open office","HP LaserJet M507","10.0.20.50","1-04"); DV("display","TV-01",1240,520,"Meeting room","Samsung 65\" display","10.0.20.60","1-06");
+  DV("camera","CAM-01",90,880,"Back door","Axis M3086-V","",null);
+  S.sites[S2.id]=S2; S.racks[R.id]=R; S.racks[R2.id]=R2; curSite=S2.id; curFloor=fl; curId=R.id; view="site";
   try{ S2.floors[0].plan=await storePlanImage(S2,S2.floors[0],new Blob([SAMPLE_PLAN],{type:"image/svg+xml"}),"image/svg+xml",1600,1000); }catch(e){}
-  persist("sites",S2.id); persist("racks",R.id); render(); toast("Sample data loaded. Delete the sample site when you're ready to add your own.");
+  persist("sites",S2.id); persist("racks",R.id); persist("racks",R2.id); touched.clear(); render(); toast("Sample data loaded. Delete the sample site when you're ready to add your own.");
 }
 
 /* ---------- custom device setup ---------- */
@@ -1665,7 +1842,7 @@ function parseCSV(text){ const rows=[]; let row=[],cell="",qd=false; for(let i=0
 function normRack(r){ const id=uid(); const map={};
   const out={id,siteId:r.siteId||"",name:String(r.name||"Imported rack"),location:String(r.location||""),units:Math.max(1,Math.min(60,+r.units||42)),notes:String(r.notes||""),devices:[]};
   for(const d of (r.devices||[])){ const nid=uid(); map[d.id]=nid; out.devices.push({id:nid,name:String(d.name||"DEV"),type:TYPES[d.type]?d.type:"blank",u:+d.u||1,h:Math.max(1,+d.h||1),model:d.model||"",serial:d.serial||"",ip:d.ip||"",notes:d.notes||"",ports:(d.ports||[]).map((p,i)=>({n:+p.n||i+1,kind:["rj45","sfp","lc"].includes(p.kind)?p.kind:"rj45",label:p.label||"",ip:p.ip||"",vlan:p.vlan||"",mac:p.mac||"",link:p.link||null,ext:p.ext||"",cable:p.cable||"",color:p.color||"",len:p.len||"",note:p.note||""}))}); }
-  for(const d of out.devices) for(const p of d.ports) if(p.link) p.link = map[p.link.d] ? {d:map[p.link.d],p:+p.link.p} : null;
+  for(const d of out.devices) for(const p of d.ports) if(p.link) p.link = (p.link.r&&p.link.r!==r.id) ? {_r:String(p.link.r),_d:String(p.link.d),p:+p.link.p} : map[p.link.d] ? {d:map[p.link.d],p:+p.link.p} : null;
   return {rack:out,map}; }
 function doImport(text){
   text=(text||"").trim(); if(!text) return toast("Choose a file or paste something to import.");
@@ -1676,8 +1853,11 @@ function doImport(text){
     const rackMap={}, devMaps={}, siteMap={};
     for(const s of slist){ if(!s||typeof s!=="object") continue; const ns=clone(s); ns.id=uid(); siteMap[s.id]=ns.id; ns.name=ns.name||"Imported site"; ns.floors=(ns.floors||[]).map(f=>({id:f.id||uid(),name:f.name||"Floor",plan:f.plan&&f.plan.asset&&IN_CLAUDE?f.plan:null,_img:f.plan?.image&&data.images?.[f.plan.image]?{data:data.images[f.plan.image],w:f.plan.w,h:f.plan.h,rot:f.plan.rot,crop:f.plan.crop}:null})); if(!ns.floors.length) ns.floors=[{id:uid(),name:"Ground floor",plan:null}]; ns.pins=ns.pins||[]; S.sites[ns.id]=ns; }
     let added=0; for(const r of rlist){ if(!r||typeof r!=="object") continue; const {rack:nr,map}=normRack(r); rackMap[r.id]=nr.id; devMaps[r.id]=map;
-      nr.siteId = siteMap[r.siteId] || (S.sites[r.siteId]?r.siteId:"") || curSite || ""; S.racks[nr.id]=nr; persist("racks",nr.id); curId=nr.id; added++; }
-    for(const s of slist){ const ns=S.sites[siteMap[s.id]]; if(!ns) continue; const pinMap={}; for(const p of ns.pins){ const nid=uid(); pinMap[p.id]=nid; p.id=nid; } for(const p of ns.pins){ if(p.kind==="ap"&&p.up){ if(p.up.pin) p.up = pinMap[p.up.pin] ? {pin:pinMap[p.up.pin],j:p.up.j} : null; else if(p.up.r){ const nr=rackMap[p.up.r], nd=devMaps[p.up.r]?.[p.up.d]; p.up = nr&&nd ? {r:nr,d:nd,p:p.up.p} : null; } } for(const x of jp(p)) if(x.link){ const nr=rackMap[x.link.r], nd=devMaps[x.link.r]?.[x.link.d]; x.link = nr&&nd ? {r:nr,d:nd,p:x.link.p} : null; } if(p.rack) p.rack=rackMap[p.rack]||""; } persist("sites",ns.id); }
+      nr.siteId = siteMap[r.siteId] || (S.sites[r.siteId]?r.siteId:"") || curSite || ""; S.racks[nr.id]=nr; curId=nr.id; added++; }
+    // cables between racks: point them at the imported copies
+    for(const id of Object.values(rackMap)) for(const d of S.racks[id].devices) for(const p of d.ports) if(p.link?._r){ const nr=rackMap[p.link._r], nd=devMaps[p.link._r]?.[p.link._d]; p.link = nr&&nd ? {r:nr,d:nd,p:p.link.p} : null; }
+    for(const id of Object.values(rackMap)) persist("racks",id);
+    for(const s of slist){ const ns=S.sites[siteMap[s.id]]; if(!ns) continue; const pinMap={}; for(const p of ns.pins){ const nid=uid(); pinMap[p.id]=nid; p.id=nid; } for(const p of ns.pins){ if(hasUp(p)&&p.up){ if(p.up.pin) p.up = pinMap[p.up.pin] ? {pin:pinMap[p.up.pin],j:p.up.j} : null; else if(p.up.r){ const nr=rackMap[p.up.r], nd=devMaps[p.up.r]?.[p.up.d]; p.up = nr&&nd ? {r:nr,d:nd,p:p.up.p} : null; } } for(const x of jp(p)) if(x.link){ const nr=rackMap[x.link.r], nd=devMaps[x.link.r]?.[x.link.d]; x.link = nr&&nd ? {r:nr,d:nd,p:x.link.p} : null; } if(p.rack) p.rack=rackMap[p.rack]||""; } persist("sites",ns.id); }
     if(slist.length){ curSite=siteMap[slist[0].id]; curFloor=null; }
     // restore floor plan images included in the backup
     (async()=>{ let ok=0; for(const id of Object.values(siteMap)){ const ns=S.sites[id]; if(!ns) continue; let changed=false;
@@ -1724,6 +1904,7 @@ function exportCsv(){ const r=rack(); const s=site(); if(!r&&!s) return toast("S
   if(r){ for(const x of cableRows(r)) lines.push(["cable",x.a,x.b,x.cable,x.color,x.len,"","",""].map(c).join(","));
     for(const x of ipRows(r)) lines.push(["ip",x.what,"","","","",x.ip,x.vlan,x.mac].map(c).join(",")); }
   if(s) for(const p of (s.pins||[]).filter(p=>p.kind==="jack")) jp(p).forEach((x,j)=>{ const t=trace(p,j); lines.push(["wall_port",`Wall port ${jname(p,j)} · ${floorName(s,p.floor)}${p.room?" · "+p.room:""}${x.endpoint?" · "+x.endpoint:""}`,t?`${portName(t.d,t.pi)}${t.o?" → "+portName(t.o,t.oi):""}`:"",x.cable||"","","",x.eip||"",t?.op?.vlan||"",x.mac||""].map(c).join(",")); });
+  if(s) for(const a of (s.pins||[]).filter(p=>p.kind==="dev")){ const at=apTrace(s,a), sw=apSwitch(s,a); lines.push(["floor_device",`${devCat(a).label} ${a.label} · ${floorName(s,a.floor)}${a.room?" · "+a.room:""}${a.model?" · "+a.model:""}${a.user?" · "+a.user:""}`,`${at?.jack?"Wall port "+jname(at.jack,at.j):at?.direct?"Direct":""}${sw?" → "+portName(sw.d,sw.pi):""}`,"","","",a.ip||"",sw?.pt?.vlan||"",a.mac||""].map(c).join(",")); }
   if(s) for(const a of (s.pins||[]).filter(p=>p.kind==="ap")){ const at=apTrace(s,a), sw=apSwitch(s,a); lines.push(["access_point",`Access point ${a.label} · ${floorName(s,a.floor)}${a.room?" · "+a.room:""}${a.model?" · "+a.model:""}`,`${at?.jack?"Wall port "+jname(at.jack,at.j):at?.direct?"Direct":""}${sw?" → "+portName(sw.d,sw.pi):""}`,"","","",a.ip||"",sw?.pt?.vlan||"",a.mac||""].map(c).join(",")); }
   offer(`${(r?.name||s.name).replace(/[^\w-]+/g,"_")}-cables-ips.csv`, lines.join("\n")); }
 
@@ -2079,7 +2260,7 @@ const Team={
   can(what){ const r=this.role; return what==="manage" ? (r==="owner"||r==="admin") : what==="owner" ? r==="owner" : true; },
 };
 function inspBusy(){ const a=document.activeElement; return !!(a && a.closest && a.closest("#insp,.modal") && a.matches("input,textarea,select")); }
-function softRender(){ if(inspBusy()){ Team.deferInsp=true; renderSide(); renderBar(); if(view==="site") renderSite(); else if(view==="rack") renderRack(); else if(view==="table") renderTable(); else if(view==="activity") renderActivity(); return; } render(); }
+function softRender(){ if(inspBusy()){ Team.deferInsp=true; renderSide(); renderBar(); if(view==="site") renderSite(); else if(view==="rack") renderRack(); else if(view==="racks") renderAll(); else if(view==="table") renderTable(); else if(view==="activity") renderActivity(); return; } render(); }
 
 /* ---------- describing changes for the activity history ---------- */
 function diffRack(a,b){
@@ -2102,13 +2283,16 @@ function diffRack(a,b){
     if(o.ports.length!==d.ports.length) out.push(`changed ${d.name} to ${d.ports.length} ports`);
     if((o.itg?.id||"")!==(d.itg?.id||"")) out.push(d.itg?`linked ${d.name} to IT Glue ${d.itg.name||""}`.trim():`unlinked ${d.name} from IT Glue`);
     d.ports.forEach((p,i)=>{ const q=o.ports[i]; if(!q) return;
-      const lk=x=>x.link?x.link.d+":"+x.link.p:"";
+      const lk=x=>x.link?(x.link.r&&x.link.r!==b.id?x.link.r+"/":"")+x.link.d+":"+x.link.p:"";
+      const xr=x=>x.link?.r&&x.link.r!==b.id, mine=x=>!xr(x)||b.id<x.link.r, pn=x=>{ const pe=peer(b,x); return pe?peerName(b,pe):"another port"; };
       if(lk(p)!==lk(q)||(p.ext||"")!==(q.ext||"")){ const key=[d.id+":"+i,p.link?lk(p):"",q.link?lk(q):""].sort().join("|"); if(seen.has(key)) return; seen.add(key);
-        if(p.link){ const peer=bm.get(p.link.d); seen.add([p.link.d+":"+p.link.p,d.id+":"+i,""].sort().join("|")); out.push(`connected ${portName(d,i)} to ${peer?portName(peer,p.link.p):"another port"}`); }
+        if(p.link&&xr(p)){ if(mine(p)) out.push(`connected ${portName(d,i)} to ${pn(p)}`); else if(q.link&&!xr(q)){ const op=am.get(q.link.d); out.push(`disconnected ${portName(d,i)}${op?" from "+portName(op,q.link.p):""}`); } }
+        else if(p.link){ const peer=bm.get(p.link.d); seen.add([p.link.d+":"+p.link.p,d.id+":"+i,""].sort().join("|")); out.push(`connected ${portName(d,i)} to ${peer?portName(peer,p.link.p):"another port"}`); }
         else if(p.ext) out.push(`connected ${portName(d,i)} to ${p.ext}`);
+        else if(q.link&&xr(q)){ if(mine(q)){ const qr=S.racks[q.link.r], od=devById(qr,q.link.d); out.push(`disconnected ${portName(d,i)}${od?" from "+qr.name+" · "+portName(od,q.link.p):""}`); } }
         else { const op=q.link?am.get(q.link.d):null; out.push(`disconnected ${portName(d,i)}${op?" from "+portName(op,q.link.p):""}`); } return; }
       const f2=["label","ip","vlan","mac","cable","color","len","note"].filter(k=>(p[k]||"")!==(q[k]||""));
-      if(f2.length && !(f2.every(k=>["cable","color","len"].includes(k)) && p.link && p.link.d<d.id)) out.push(`updated ${portName(d,i)} (${f2.map(k=>k==="ip"?"IP":k==="vlan"?"VLAN":k==="mac"?"MAC":k==="len"?"length":k==="cable"?"cable ID":k).join(", ")})`);
+      if(f2.length && !(f2.every(k=>["cable","color","len"].includes(k)) && p.link && (xr(p)?!mine(p):p.link.d<d.id))) out.push(`updated ${portName(d,i)} (${f2.map(k=>k==="ip"?"IP":k==="vlan"?"VLAN":k==="mac"?"MAC":k==="len"?"length":k==="cable"?"cable ID":k).join(", ")})`);
     }); }
   return out;
 }
@@ -2123,7 +2307,7 @@ function diffSite(a,b){
     if(pid(o.plan)!==pid(x.plan)) out.push(x.plan?(o.plan?`replaced the floor plan of ${x.name}`:`uploaded a floor plan for ${x.name}`):`removed the floor plan of ${x.name}`);
     else if(x.plan&&o.plan&&!same({r:o.plan.rot,c:o.plan.crop},{r:x.plan.rot,c:x.plan.crop})) out.push(`rotated or cropped the floor plan of ${x.name}`); }
   for(const x of a.floors||[]) if(!bf.has(x.id)) out.push(`deleted floor ${x.name}`);
-  const kindName=p=>p.kind==="ap"?`access point ${p.label}`:p.kind==="rack"?`rack location ${S.racks[p.rack]?.name||p.label||""}`.trim():`wall port ${p.label}`;
+  const kindName=p=>p.kind==="dev"?`${devCat(p).label.toLowerCase()} ${p.label}`:p.kind==="ap"?`access point ${p.label}`:p.kind==="rack"?`rack location ${S.racks[p.rack]?.name||p.label||""}`.trim():`wall port ${p.label}`;
   const ap=new Map((a.pins||[]).map(x=>[x.id,x])), bp=new Map((b.pins||[]).map(x=>[x.id,x]));
   for(const p of b.pins||[]){ const o=ap.get(p.id); if(!o){ out.push(`added ${kindName(p)}${p.floor?" on "+floorName(b,p.floor):""}`); continue; }
     if(o.label!==p.label&&p.kind!=="rack") out.push(`renamed ${kindName(o)} to ${p.label}`);
@@ -2133,7 +2317,7 @@ function diffSite(a,b){
       pj.forEach((x,j)=>{ const y=oj[j]; if(!y) return; const nm=pj.length>1?`${p.label} ${letter(j)}`:p.label;
         if(!same(x.link,y.link)){ const r=S.racks[x.link?.r], d=devById(r,x.link?.d); out.push(x.link&&x.link.p!=null&&d?`patched wall port ${nm} to ${portName(d,x.link.p)}`:x.link?`started patching wall port ${nm}`:`unpatched wall port ${nm}`); }
         const ff=["endpoint","eip","mac","cable"].filter(k=>(x[k]||"")!==(y[k]||"")); if(ff.length) out.push(`updated wall port ${nm} (${ff.map(k=>({endpoint:"device",eip:"device IP",mac:"MAC",cable:"cable ID"}[k])).join(", ")})`); }); }
-    else if(p.kind==="ap"){ if(!same(o.up,p.up)) out.push(p.up?`connected ${kindName(p)}`:`disconnected ${kindName(p)}`);
+    else if(hasUp(p)){ if(!same(o.up,p.up)) out.push(p.up?`connected ${kindName(p)}`:`disconnected ${kindName(p)}`);
       const ff=["model","ip","mac","ssids","band","poe","room","note","range"].filter(k=>(o[k]??"")!==(p[k]??"")); if(ff.length) out.push(`updated ${kindName(p)} (${ff.map(k=>k==="ip"?"IP":k==="mac"?"MAC":k==="ssids"?"SSIDs":k==="poe"?"power":k==="range"?"coverage":k).join(", ")})`); }
     else if(o.rack!==p.rack) out.push(`changed ${kindName(p)}`);
     if(p.kind==="jack"&&((o.room||"")!==(p.room||"")||(o.note||"")!==(p.note||""))) out.push(`updated ${kindName(p)} details`); }
@@ -2270,9 +2454,21 @@ async function importLocalIntoTeam(){
    ===================================================================== */
 const ITG_REGIONS=[["us","United States (itglue.com)"],["eu","Europe (eu.itglue.com)"],["au","Australia (au.itglue.com)"]];
 const ITG_NOT_RACK=/workstation|laptop|desktop|notebook|printer|phone|mobile|tablet|virtual|\bvm\b|monitor|camera|licen|software|user|thin client|kiosk|copier|scanner/i;
+// configurations that live out on the floor rather than in a rack
+function itgFloorCat(type){ const t=(type||"").toLowerCase();
+  if(/virtual|\bvm\b|software|licen|\buser\b|mobile|tablet|cell/.test(t)) return null;
+  if(/printer|copier|scanner|\bmfp\b|multifunction|plotter/.test(t)) return "printer";
+  if(/workstation|laptop|desktop|notebook|thin client|kiosk|\bpc\b|computer/.test(t)) return "pc";
+  if(/phone|voip|handset|intercom/.test(t)) return "phone";
+  if(/camera|cctv/.test(t)) return "camera";
+  if(/display|\btv\b|television|projector|signage|monitor/.test(t)) return "display";
+  if(/access control|door|badge|card reader/.test(t)) return "access";
+  if(/\biot\b|sensor|thermostat|controller/.test(t)) return "iot";
+  return null; }
 function itgKind(type,model){
   const t=(type||"").toLowerCase(), m=(model||"").toLowerCase();
   if(/access point|wireless|\bwap\b|\bap\b|wi-?fi/.test(t)) return "ap";
+  if(itgFloorCat(type)) return "floor";
   if(/patch/.test(t)) return /fib|fibre|fiber/.test(t)?"fiber":(/48/.test(m)?"patch48":"patch");
   if(/firewall|utm|security appliance/.test(t)) return "firewall";
   if(/router|gateway|sd-?wan/.test(t)) return "router";
@@ -2302,7 +2498,7 @@ function applyItg(d,c,{useName=false}={}){
   return Object.keys(before).filter(k=>before[k]!==d[k]);
 }
 function itgLinked(){ const m={}; for(const r of Object.values(S.racks)) for(const d of r.devices) if(d.itg?.id) m[d.itg.id]={where:r.name,name:d.name};
-  for(const s of Object.values(S.sites)) for(const p of s.pins||[]) if(p.kind==="ap"&&p.itg?.id) m[p.itg.id]={where:s.name,name:p.label}; return m; }
+  for(const s of Object.values(S.sites)) for(const p of s.pins||[]) if(hasUp(p)&&p.itg?.id) m[p.itg.id]={where:s.name,name:p.label}; return m; }
 const itgReady=()=>mode==="team"&&!!Team.itg?.configured;
 const pDate=w=>{ const m=String(w||"").match(/^(\d{4})-(\d{2})-(\d{2})(?:$|T00:00:00(?:\.0+)?(?:Z|[+-]00:?00)?$)/); return m?new Date(+m[1],+m[2]-1,+m[3]):new Date(w); }; // date-only values are calendar days, not UTC instants
 const warrantyPast=w=>{ if(!w) return false; const t=pDate(w); if(isNaN(t)) return false; const d=new Date(); d.setHours(0,0,0,0); return t<d; };
@@ -2400,7 +2596,7 @@ const Picker={
     el.innerHTML=`<table><thead><tr>${st.mode==="import"?`<th><input type="checkbox" id="pkAll" aria-label="Select all shown" ${rows.length&&rows.every(c=>st.sel.has(c._key||c.id)||linked[c.id])?"checked":""}></th>`:"<th></th>"}<th>Name</th><th>Type</th><th>Model</th><th>Serial</th><th>IP</th><th>Location</th></tr></thead><tbody>
       ${rows.map(c=>{ const k=c._key||c.id, have=c.id&&linked[c.id]; const kind=itgKind(c.type,c.model);
         return `<tr class="${st.sel.has(k)?"on":""}">${st.mode==="import"?`<td><input type="checkbox" data-pksel="${esc(k)}" ${st.sel.has(k)?"checked":""} ${have?"disabled":""} aria-label="Select ${esc(c.name)}"></td>`:`<td><button class="btn" data-pklink="${esc(k)}">Link</button></td>`}
-        <td><b>${esc(c.name)}</b>${have?` <span class="chip" title="Already in ${esc(have.where)} as ${esc(have.name)}">In RackGrid</span>`:""}${kind==="ap"&&st.mode==="import"?` <span class="chip">Floor plan</span>`:""}</td>
+        <td><b>${esc(c.name)}</b>${have?` <span class="chip" title="Already in ${esc(have.where)} as ${esc(have.name)}">In RackGrid</span>`:""}${(kind==="ap"||kind==="floor")&&st.mode==="import"?` <span class="chip">Floor plan</span>`:""}</td>
         <td>${esc(c.type)}</td><td>${esc(itgModel(c))}</td><td class="mono">${esc(c.serial)}</td><td class="mono">${esc(c.ip)}</td><td>${esc(c.location)}</td></tr>`; }).join("")}
       </tbody></table>${all.length>rows.length?`<p class="hint" style="padding:8px 12px">Showing 300 of ${all.length}. Search to narrow the list.</p>`:""}${st.truncated?`<p class="hint" style="padding:8px 12px">This organization has more than 10,000 configurations; only the first 10,000 were loaded.</p>`:""}`;
     this.foot();
@@ -2408,11 +2604,11 @@ const Picker={
   foot(){
     const st=this.st, el=$("#pkFoot"); if(!el) return;
     if(st.mode==="link"){ el.innerHTML=`<span class="hint" style="margin:0">${this.filtered().length} match${this.filtered().length===1?"":"es"}</span>`; return; }
-    const chosen=st.rows.filter(c=>st.sel.has(c._key||c.id)), aps=chosen.filter(c=>itgKind(c.type,c.model)==="ap").length, rk=chosen.length-aps;
+    const chosen=st.rows.filter(c=>st.sel.has(c._key||c.id)), aps=chosen.filter(c=>["ap","floor"].includes(itgKind(c.type,c.model))).length, rk=chosen.length-aps;
     const racks=siteRacks(), f=floor();
     el.innerHTML=`<label class="ws-check"><input type="checkbox" id="pkNames" ${st.useNames?"checked":""}> Use IT Glue names</label>
       <label class="itgp-row" style="margin:0">Add to<select id="pkRack">${racks.length?racks.map(r=>`<option value="${r.id}"${r.id===st.target?" selected":""}>${esc(r.name)}</option>`).join(""):`<option value="">No rack at this site</option>`}</select></label>
-      ${aps?`<span class="hint" style="margin:0">${aps} access point${aps===1?"":"s"} → ${f?esc(f.name):"no floor plan (skipped)"}</span>`:""}
+      ${aps?`<span class="hint" style="margin:0">${aps} to the floor plan → ${f?esc(f.name):"no floor (skipped)"}</span>`:""}
       <button class="btn primary" data-pk="import" ${chosen.length&&(!rk||st.target)?"":"disabled"}>Add ${chosen.length||""} device${chosen.length===1?"":"s"}</button>`;
   },
   onChange(e){
@@ -2448,17 +2644,22 @@ const Picker={
     let added=0, aps=0; const noRoom=[], skipped=[];
     for(const c of chosen){ const kind=itgKind(c.type,c.model);
       if(kind==="ap"){ if(!s||!f){ skipped.push(c.name); continue; }
-        const used=new Set(s.pins.map(p=>p.label)); const i=s.pins.filter(p=>p.kind==="ap").length;
+        const used=new Set(s.pins.map(p=>p.label)); const i=s.pins.filter(p=>hasUp(p)).length;
         const label=st.useNames&&c.name&&!used.has(c.name)?c.name:(()=>{ let k=i+1; while(used.has(`AP-${pad2(k)}`)) k++; return `AP-${pad2(k)}`; })();
         s.pins.push({id:uid(),kind:"ap",floor:f.id,x:.06+(i%8)*.06,y:.08+Math.floor(i/8)*.08,label,room:c.location||"",model:itgModel(c),ip:c.ip||"",mac:c.mac||"",ssids:"",band:"",poe:"",range:.12,up:null,note:"",itg:itgMeta(c)});
+        aps++; continue; }
+      if(kind==="floor"){ if(!s||!f){ skipped.push(c.name); continue; }
+        const cat=itgFloorCat(c.type), used=new Set(s.pins.map(p=>p.label)), i=s.pins.filter(p=>hasUp(p)).length;
+        const label=st.useNames&&c.name&&!used.has(c.name)?c.name:nextDevLabel(s,cat);
+        s.pins.push({id:uid(),kind:"dev",cat,floor:f.id,x:.06+(i%8)*.06,y:.08+Math.floor(i/8)*.08,label,room:c.location||"",model:itgModel(c),serial:c.serial||"",ip:c.ip||"",mac:c.mac||"",user:"",up:null,note:"",itg:itgMeta(c)});
         aps++; continue; }
       if(!r){ skipped.push(c.name); continue; }
       const type=TYPES[kind]?kind:"custom", u=firstFree(r,TYPES[type].h); if(u==null){ noRoom.push(c.name); continue; }
       const d=newDevice(r,type,u); if(type==="custom") d.kind=c.type||"Device"; applyItg(d,c,{useName:st.useNames}); r.devices.push(d); added++; }
     if(added) persist("racks",r.id); if(aps) persist("sites",s.id);
     closeModal(); if(added){ curId=r.id; view="rack"; } else if(aps) view="site"; render();
-    toast([added?`Added ${added} device${added===1?"":"s"} to ${r.name}.`:"", aps?`Placed ${aps} access point${aps===1?"":"s"} on ${f.name}. Drag them into position.`:"",
-      noRoom.length?`No free space for: ${noRoom.slice(0,4).join(", ")}${noRoom.length>4?"…":""}.`:"", skipped.length?`Skipped ${skipped.length}: ${(!s||!f)?"no floor plan for access points":"no rack chosen"}.`:""].filter(Boolean).join(" "));
+    toast([added?`Added ${added} device${added===1?"":"s"} to ${r.name}.`:"", aps?`Placed ${aps} item${aps===1?"":"s"} on ${f.name}. Drag them into position.`:"",
+      noRoom.length?`No free space for: ${noRoom.slice(0,4).join(", ")}${noRoom.length>4?"…":""}.`:"", skipped.length?`Skipped ${skipped.length}: ${(!s||!f)?"no floor to place them on":"no rack chosen"}.`:""].filter(Boolean).join(" "));
   },
 };
 
